@@ -1,31 +1,35 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { use as useECharts } from 'echarts/core'
-import { BarChart } from 'echarts/charts'
+import { BarChart, LineChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
   GridComponent,
   MarkLineComponent,
   MarkPointComponent,
+  LegendComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
-import { usePopulation, ANNOTATIONS } from './composables/usePopulation.js'
+import { usePopulation } from './composables/usePopulation.js'
 
 useECharts([
   BarChart,
+  LineChart,
   TitleComponent,
   TooltipComponent,
   GridComponent,
   MarkLineComponent,
   MarkPointComponent,
+  LegendComponent,
   CanvasRenderer,
 ])
 
 const {
   loading, error, loadData, simulate, yearRange,
   fertilityOverride, femaleRatio, generationTime,
+  hotspots, hotspotChartData,
 } = usePopulation()
 
 const currentYear = ref(2020)
@@ -50,10 +54,7 @@ const chartOption = computed(() => {
       trigger: 'axis',
       formatter(params) {
         const d = params[0]
-        const age = d.name
-        const pop = d.value.toLocaleString()
-        const label = ANNOTATIONS[age]
-        return `年龄: ${age}<br/>人口: ${pop}${label ? '<br/>消费: ' + label : ''}`
+        return `年龄: ${d.name}<br/>人口: ${d.value.toLocaleString()}`
       },
     },
     grid: { left: 60, right: 40, top: 50, bottom: 60 },
@@ -87,21 +88,66 @@ const chartOption = computed(() => {
                 : `rgba(34, 197, 94, ${0.3 + ratio * 0.7})`,
           },
         }
-        // 标注消费
-        if (ANNOTATIONS[age]) {
-          item.label = {
-            show: true,
-            formatter: ANNOTATIONS[age],
-            position: 'top',
-            fontSize: 11,
-            fontWeight: 'bold',
-            color: '#333',
-          }
-        }
         return item
       }),
       barMaxWidth: 12,
     }],
+  }
+})
+
+const hotspotChartOption = computed(() => {
+  const { years, series } = hotspotChartData.value
+  if (!years.length) return {}
+
+  return {
+    animation: false,
+    title: {
+      text: '消费热点指数',
+      left: 'center',
+    },
+    tooltip: {
+      trigger: 'axis',
+      formatter(params) {
+        let html = `${params[0].axisValue} 年<br/>`
+        for (const p of params) {
+          const val = p.value >= 100000000
+            ? (p.value / 100000000).toFixed(2) + '亿'
+            : p.value >= 10000
+              ? (p.value / 10000).toFixed(0) + '万'
+              : p.value.toLocaleString()
+          html += `${p.marker}${p.seriesName}: ${val}<br/>`
+        }
+        return html
+      },
+    },
+    legend: {
+      type: 'scroll',
+      bottom: 0,
+    },
+    grid: { left: 60, right: 40, top: 50, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      data: years,
+      name: '年份',
+      axisLabel: { interval: 19 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '热度',
+      axisLabel: {
+        formatter: v => v >= 100000000 ? (v / 100000000).toFixed(1) + '亿'
+          : v >= 10000 ? (v / 10000).toFixed(0) + '万'
+          : v,
+      },
+    },
+    series: series.map(s => ({
+      name: s.name,
+      type: 'line',
+      data: s.data,
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { width: 2 },
+    })),
   }
 })
 
@@ -239,6 +285,35 @@ onMounted(() => loadData())
                 step="1"
                 v-model.number="generationTime"
                 class="range range-sm range-secondary"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 消费热点指数图 -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-2">
+          <v-chart :option="hotspotChartOption" style="height: 350px; width: 100%" autoresize />
+        </div>
+      </div>
+
+      <!-- 消费热点中心年龄 -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body">
+          <h2 class="card-title text-base">消费热点中心年龄</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div v-for="h in hotspots" :key="h.name">
+              <label class="label py-1">
+                <span class="label-text text-sm">{{ h.name }} {{ h.centerAge }}岁</span>
+              </label>
+              <input
+                type="range"
+                v-model.number="h.centerAge"
+                min="0"
+                max="100"
+                step="1"
+                class="range range-sm range-accent"
               />
             </div>
           </div>

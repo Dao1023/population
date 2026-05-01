@@ -14,3 +14,4 @@ web/dist/
 # IDE
 .vscode/
 .idea/
+.claude/settings.local.json
