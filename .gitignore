@@ -1,1 +1,16 @@
-population_distribution_images
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+notebook/population_distribution_images/
+
+# Node
+node_modules/
+web/dist/
+
+# IDE
+.vscode/
+.idea/
