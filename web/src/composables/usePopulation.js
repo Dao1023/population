@@ -18,19 +18,19 @@ export function usePopulation() {
   const generationTime = ref(30)      // 生育代际时间
 
   // 消费热点配置
-  const HOTSPOT_SIGMA = 5
+  const HOTSPOT_SIGMA = ref(1)
   const hotspots = ref([
-    { name: '公寓', centerAge: 26 },
-    { name: '婚房', centerAge: 31 },
-    { name: '改善房', centerAge: 42 },
-    { name: '装修', centerAge: 46 },
-    { name: '大学费', centerAge: 51 },
-    { name: '汽车', centerAge: 53 },
-    { name: '医疗', centerAge: 60 },
-    { name: '养老', centerAge: 65 },
-    { name: '旅行', centerAge: 70 },
-    { name: '药物', centerAge: 77 },
-    { name: '养老院', centerAge: 84 },
+    { name: '公寓', centerAge: 26, enabled: true },
+    { name: '婚房', centerAge: 31, enabled: true },
+    { name: '改善房', centerAge: 42, enabled: true },
+    { name: '装修', centerAge: 46, enabled: true },
+    { name: '大学费', centerAge: 51, enabled: true },
+    { name: '汽车', centerAge: 53, enabled: true },
+    { name: '医疗', centerAge: 60, enabled: true },
+    { name: '养老', centerAge: 65, enabled: true },
+    { name: '旅行', centerAge: 70, enabled: true },
+    { name: '药物', centerAge: 77, enabled: true },
+    { name: '养老院', centerAge: 84, enabled: true },
   ])
 
   async function loadData() {
@@ -72,7 +72,7 @@ export function usePopulation() {
 
   function calcStats(ages, populations) {
     const total = populations.reduce((a, b) => a + b, 0)
-    if (total === 0) return { total: 0, medianAge: 0, dependencyRatio: 0 }
+    if (total === 0) return { total: 0, workingPop: 0, medianAge: 0, dependencyRatio: 0 }
 
     let cumulative = 0
     let medianAge = 0
@@ -84,14 +84,15 @@ export function usePopulation() {
       }
     }
 
-    let young = 0, old = 0
+    let young = 0, old = 0, working = 0
     for (let i = 0; i < ages.length; i++) {
       if (ages[i] < 60) young += populations[i]
       else old += populations[i]
+      if (ages[i] >= 15 && ages[i] <= 59) working += populations[i]
     }
     const dependencyRatio = young > 0 ? old / young : 0
 
-    return { total, medianAge, dependencyRatio }
+    return { total, workingPop: working, medianAge, dependencyRatio }
   }
 
   /**
@@ -158,12 +159,12 @@ export function usePopulation() {
     const years = tl.map(t => t.year)
     const a = ages.value
 
-    const series = hotspots.value.map(h => ({
+    const series = hotspots.value.filter(h => h.enabled).map(h => ({
       name: h.name,
       data: tl.map(t => {
         let intensity = 0
         for (let i = 0; i < a.length; i++) {
-          const w = Math.exp(-0.5 * ((a[i] - h.centerAge) / HOTSPOT_SIGMA) ** 2)
+          const w = Math.exp(-0.5 * ((a[i] - h.centerAge) / HOTSPOT_SIGMA.value) ** 2)
           intensity += t.populations[i] * w
         }
         return Math.round(intensity)
@@ -187,6 +188,7 @@ export function usePopulation() {
     generationTime,
     // 消费热点
     hotspots,
+    hotspotSigma: HOTSPOT_SIGMA,
     hotspotChartData,
   }
 }

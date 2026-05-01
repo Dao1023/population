@@ -30,7 +30,7 @@ const {
   loading, error, loadData, yearRange, ages,
   timeline, timelineStats,
   fertilityOverride, femaleRatio, generationTime,
-  hotspots, hotspotChartData,
+  hotspots, hotspotChartData, hotspotSigma,
 } = usePopulation()
 
 const currentYear = ref(2020)
@@ -459,10 +459,19 @@ onMounted(() => loadData())
       <!-- 消费热点中心年龄 -->
       <div class="card bg-base-100 shadow">
         <div class="card-body">
-          <h2 class="card-title text-base">消费热点中心年龄</h2>
+          <div class="flex items-center justify-between">
+            <h2 class="card-title text-base">消费热点中心年龄</h2>
+            <button class="btn btn-xs btn-ghost" @click="hotspots.forEach(h => h.enabled = !h.enabled)">{{ hotspots.every(h => h.enabled) ? '全不选' : '全选' }}</button>
+          </div>
+          <div class="mb-2">
+            <div class="text-sm py-1">分布宽度 σ = {{ hotspotSigma }}</div>
+            <input type="range" v-model.number="hotspotSigma" min="0.1" max="3" step="0.1" class="range range-sm range-accent" />
+          </div>
+          <div class="divider my-1"></div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div v-for="h in hotspots" :key="h.name">
-              <label class="label py-1">
+              <label class="flex items-center gap-2 cursor-pointer py-1">
+                <input type="checkbox" v-model="h.enabled" class="checkbox checkbox-sm checkbox-accent" />
                 <span class="label-text text-sm">{{ h.name }} {{ h.centerAge }}岁</span>
               </label>
               <input
