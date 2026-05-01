@@ -37,6 +37,16 @@ const currentYear = ref(2020)
 const playing = ref(false)
 let timer = null
 
+const displayStart = ref(2000)
+const displayEnd = ref(2100)
+
+const rangeStyle = computed(() => {
+  const total = yearRange.value.max - yearRange.value.min
+  const left = ((displayStart.value - yearRange.value.min) / total) * 100
+  const right = ((yearRange.value.max - displayEnd.value) / total) * 100
+  return { left: left + '%', right: right + '%' }
+})
+
 // 当前年份数据（从缓存时间线查找，不再重复模拟）
 const currentPopulations = computed(() => {
   const entry = timeline.value.find(t => t.year === currentYear.value)
@@ -46,6 +56,29 @@ const currentPopulations = computed(() => {
 const currentStats = computed(() => {
   const entry = timelineStats.value.find(t => t.year === currentYear.value)
   return entry || { total: 0, medianAge: 0, dependencyRatio: 0 }
+})
+
+// 时间窗口过滤
+const filteredStats = computed(() =>
+  timelineStats.value.filter(s => s.year >= displayStart.value && s.year <= displayEnd.value))
+
+const filteredHotspotData = computed(() => {
+  const { years, series } = hotspotChartData.value
+  const indices = []
+  const filteredYears = []
+  years.forEach((y, i) => {
+    if (y >= displayStart.value && y <= displayEnd.value) {
+      indices.push(i)
+      filteredYears.push(y)
+    }
+  })
+  return {
+    years: filteredYears,
+    series: series.map(s => ({
+      name: s.name,
+      data: indices.map(i => s.data[i]),
+    })),
+  }
 })
 
 // 年龄分布柱状图
@@ -106,9 +139,98 @@ const chartOption = computed(() => {
   }
 })
 
+// 人口总览时间图
+const overviewChartOption = computed(() => {
+  const stats = filteredStats.value
+  if (!stats.length) return {}
+
+  const years = stats.map(s => s.year)
+
+  return {
+    animation: false,
+    title: { text: '人口总览', left: 'center' },
+    tooltip: {
+      trigger: 'axis',
+      formatter(params) {
+        let html = `${params[0].axisValue} 年<br/>`
+        for (const p of params) {
+          const val = p.seriesName === '总人口' || p.seriesName === '劳动人口'
+            ? (p.value / 100000000).toFixed(2) + '亿'
+            : p.seriesName === '中位年龄'
+              ? p.value + '岁'
+              : p.value.toFixed(1) + '%'
+          html += `${p.marker}${p.seriesName}: ${val}<br/>`
+        }
+        return html
+      },
+    },
+    legend: { bottom: 0 },
+    grid: { left: 60, right: 60, top: 50, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      data: years,
+      name: '年份',
+      axisLabel: { interval: 19 },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '人口',
+        position: 'left',
+        axisLabel: {
+          formatter: v => (v / 100000000).toFixed(1) + '亿',
+        },
+      },
+      {
+        type: 'value',
+        name: '年龄 / %',
+        position: 'right',
+      },
+    ],
+    series: [
+      {
+        name: '总人口',
+        type: 'line',
+        data: stats.map(s => s.total),
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2 },
+        yAxisIndex: 0,
+      },
+      {
+        name: '劳动人口',
+        type: 'line',
+        data: stats.map(s => s.workingPop),
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2 },
+        yAxisIndex: 0,
+      },
+      {
+        name: '中位年龄',
+        type: 'line',
+        data: stats.map(s => s.medianAge),
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2 },
+        yAxisIndex: 1,
+      },
+      {
+        name: '养老抚养比',
+        type: 'line',
+        data: stats.map(s => Math.round(s.dependencyRatio * 1000) / 10),
+        smooth: true,
+        symbol: 'none',
+        lineStyle: { width: 2, type: 'dashed' },
+        yAxisIndex: 1,
+      },
+    ],
+  }
+})
+
 // 消费热点指数图
 const hotspotChartOption = computed(() => {
-  const { years, series } = hotspotChartData.value
+  const { years, series } = filteredHotspotData.value
   if (!years.length) return {}
 
   return {
@@ -303,6 +425,30 @@ onMounted(() => loadData())
         </div>
       </div>
 
+      <!-- 时间窗口 -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body py-3">
+          <div class="flex items-center gap-4">
+            <span class="text-sm font-mono">{{ displayStart }}</span>
+            <div class="dual-range flex-1">
+              <div class="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full bg-base-content/15">
+                <div class="absolute top-0 bottom-0 rounded-full bg-primary/50" :style="rangeStyle"></div>
+              </div>
+              <input type="range" :min="yearRange.min" :max="yearRange.max" :value="displayStart" @input="displayStart = Math.min($event.target.value, displayEnd)" />
+              <input type="range" :min="yearRange.min" :max="yearRange.max" :value="displayEnd" @input="displayEnd = Math.max($event.target.value, displayStart)" />
+            </div>
+            <span class="text-sm font-mono">{{ displayEnd }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 人口总览图 -->
+      <div class="card bg-base-100 shadow">
+        <div class="card-body p-2">
+          <v-chart :option="overviewChartOption" style="height: 350px; width: 100%" autoresize />
+        </div>
+      </div>
+
       <!-- 消费热点指数图 -->
       <div class="card bg-base-100 shadow">
         <div class="card-body p-2">
@@ -334,3 +480,59 @@ onMounted(() => loadData())
     </div>
   </div>
 </template>
+
+<style>
+.dual-range {
+  position: relative;
+  height: 30px;
+}
+
+.dual-range input[type="range"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  z-index: 2;
+}
+
+.dual-range input[type="range"]::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.dual-range input[type="range"]::-moz-range-track {
+  background: transparent;
+}
+
+.dual-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: all;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #5b21b6;
+  border: 3px solid white;
+  cursor: pointer;
+  margin-top: -7px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dual-range input[type="range"]::-moz-range-thumb {
+  pointer-events: all;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #5b21b6;
+  border: 3px solid white;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+</style>
