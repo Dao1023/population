@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 /**
  * 人口模拟 composable
  * 加载原始数据，根据参数实时模拟人口分布
+ * 时间线只计算一次，所有图表共用缓存数据
  */
 export function usePopulation() {
   const ageDistribution = ref([])   // [{age, population}]
@@ -50,68 +51,14 @@ export function usePopulation() {
     }
   }
 
-  /**
-   * 模拟指定年份的人口分布
-   * @param {number} targetYear - 目标年份
-   * @returns {{ ages: number[], populations: number[], stats: object }}
-   */
-  function simulate(targetYear) {
-    if (!ageDistribution.value.length) return { ages: [], populations: [], stats: {} }
+  // 固定年龄序列
+  const ages = computed(() => ageDistribution.value.map(d => d.age))
 
-    const baseYear = 2020
-
-    // 构建死亡率查找表
-    const mortMap = {}
-    for (const d of mortalityRate.value) {
-      mortMap[d.age] = d.mortality_rate
-    }
-
-    // 复制基准人口
-    const pop = ageDistribution.value.map(d => d.population)
-    const ages = ageDistribution.value.map(d => d.age)
-
-    if (targetYear === baseYear) {
-      return { ages, populations: pop, stats: calcStats(ages, pop) }
-    }
-
-    if (targetYear > baseYear) {
-      // 正向模拟
-      for (let year = baseYear + 1; year <= targetYear; year++) {
-        // 获取当年生育率
-        let fertilityRate
-        if (fertilityOverride.value !== null) {
-          fertilityRate = fertilityOverride.value
-        } else {
-          const found = fertilityForecast.value.find(d => d.year === year)
-          fertilityRate = found ? found.fertility_rate : 0.7
-        }
-
-        // 计算新生儿
-        const newborns = calcNewborns(pop, ages, fertilityRate, femaleRatio.value, generationTime.value)
-
-        // 年龄推移
-        for (let i = pop.length - 1; i > 0; i--) {
-          pop[i] = pop[i - 1]
-        }
-        pop[0] = newborns
-
-        // 应用死亡率
-        for (let i = 0; i < pop.length; i++) {
-          pop[i] = Math.round(pop[i] * (1 - (mortMap[ages[i]] || 0)))
-        }
-      }
-    } else {
-      // 反向推算
-      for (let year = baseYear; year > targetYear; year--) {
-        for (let i = 0; i < pop.length - 1; i++) {
-          pop[i] = pop[i + 1]
-        }
-        pop[pop.length - 1] = 0
-      }
-    }
-
-    return { ages, populations: pop.map(Math.round), stats: calcStats(ages, pop) }
-  }
+  // 可模拟的年份范围
+  const yearRange = computed(() => {
+    if (!fertilityForecast.value.length) return { min: 1951, max: 2200 }
+    return { min: 1951, max: fertilityForecast.value[fertilityForecast.value.length - 1].year }
+  })
 
   function calcNewborns(pop, ages, fertilityRate, femaleRatio, generationTime) {
     let fertilePop = 0
@@ -127,7 +74,6 @@ export function usePopulation() {
     const total = populations.reduce((a, b) => a + b, 0)
     if (total === 0) return { total: 0, medianAge: 0, dependencyRatio: 0 }
 
-    // 中位年龄
     let cumulative = 0
     let medianAge = 0
     for (let i = 0; i < ages.length; i++) {
@@ -138,7 +84,6 @@ export function usePopulation() {
       }
     }
 
-    // 养老抚养比 (60+ / <60)
     let young = 0, old = 0
     for (let i = 0; i < ages.length; i++) {
       if (ages[i] < 60) young += populations[i]
@@ -150,39 +95,37 @@ export function usePopulation() {
   }
 
   /**
-   * 高效模拟时间线上所有年份的人口分布
+   * 模拟时间线上所有年份的人口分布
    */
   function simulateTimeline(startYear, endYear) {
     if (!ageDistribution.value.length) return []
 
     const baseYear = 2020
-    const ages = ageDistribution.value.map(d => d.age)
+    const simAges = ageDistribution.value.map(d => d.age)
 
     const mortMap = {}
     for (const d of mortalityRate.value) mortMap[d.age] = d.mortality_rate
     const fertMap = {}
     for (const d of fertilityForecast.value) fertMap[d.year] = d.fertility_rate
 
-    const timeline = []
+    const timelineData = []
     const basePop = ageDistribution.value.map(d => d.population)
 
-    // 正向模拟
     if (endYear >= baseYear) {
       const pop = [...basePop]
-      if (baseYear >= startYear) timeline.push({ year: baseYear, populations: [...pop] })
+      if (baseYear >= startYear) timelineData.push({ year: baseYear, populations: [...pop] })
       for (let year = baseYear + 1; year <= endYear; year++) {
         const fertilityRate = fertilityOverride.value ?? (fertMap[year] ?? 0.7)
-        const newborns = calcNewborns(pop, ages, fertilityRate, femaleRatio.value, generationTime.value)
+        const newborns = calcNewborns(pop, simAges, fertilityRate, femaleRatio.value, generationTime.value)
         for (let i = pop.length - 1; i > 0; i--) pop[i] = pop[i - 1]
         pop[0] = newborns
         for (let i = 0; i < pop.length; i++) {
-          pop[i] = Math.round(pop[i] * (1 - (mortMap[ages[i]] || 0)))
+          pop[i] = Math.round(pop[i] * (1 - (mortMap[simAges[i]] || 0)))
         }
-        if (year >= startYear) timeline.push({ year, populations: [...pop] })
+        if (year >= startYear) timelineData.push({ year, populations: [...pop] })
       }
     }
 
-    // 反向推算
     if (startYear < baseYear) {
       const pop = [...basePop]
       const backward = []
@@ -192,26 +135,35 @@ export function usePopulation() {
         backward.push({ year, populations: [...pop] })
       }
       backward.reverse()
-      timeline.unshift(...backward)
+      timelineData.unshift(...backward)
     }
 
-    return timeline
+    return timelineData
   }
+
+  // 缓存时间线（所有图表共用，参数变化时自动重算）
+  const timeline = computed(() => simulateTimeline(yearRange.value.min, yearRange.value.max))
+
+  // 时间线统计数据（总人口、中位年龄、抚养比）
+  const timelineStats = computed(() => {
+    const a = ages.value
+    return timeline.value.map(t => ({ year: t.year, ...calcStats(a, t.populations) }))
+  })
 
   // 消费热点指数数据
   const hotspotChartData = computed(() => {
-    const timeline = simulateTimeline(yearRange.value.min, yearRange.value.max)
-    if (!timeline.length) return { years: [], series: [] }
+    const tl = timeline.value
+    if (!tl.length) return { years: [], series: [] }
 
-    const years = timeline.map(t => t.year)
-    const ages = ageDistribution.value.map(d => d.age)
+    const years = tl.map(t => t.year)
+    const a = ages.value
 
     const series = hotspots.value.map(h => ({
       name: h.name,
-      data: timeline.map(t => {
+      data: tl.map(t => {
         let intensity = 0
-        for (let i = 0; i < ages.length; i++) {
-          const w = Math.exp(-0.5 * ((ages[i] - h.centerAge) / HOTSPOT_SIGMA) ** 2)
+        for (let i = 0; i < a.length; i++) {
+          const w = Math.exp(-0.5 * ((a[i] - h.centerAge) / HOTSPOT_SIGMA) ** 2)
           intensity += t.populations[i] * w
         }
         return Math.round(intensity)
@@ -221,18 +173,14 @@ export function usePopulation() {
     return { years, series }
   })
 
-  // 可模拟的年份范围
-  const yearRange = computed(() => {
-    if (!fertilityForecast.value.length) return { min: 1951, max: 2200 }
-    return { min: 1951, max: fertilityForecast.value[fertilityForecast.value.length - 1].year }
-  })
-
   return {
     loading,
     error,
     loadData,
-    simulate,
     yearRange,
+    ages,
+    timeline,
+    timelineStats,
     // 可调参数
     fertilityOverride,
     femaleRatio,

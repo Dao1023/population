@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { use as useECharts } from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import {
@@ -27,7 +27,8 @@ useECharts([
 ])
 
 const {
-  loading, error, loadData, simulate, yearRange,
+  loading, error, loadData, yearRange, ages,
+  timeline, timelineStats,
   fertilityOverride, femaleRatio, generationTime,
   hotspots, hotspotChartData,
 } = usePopulation()
@@ -36,11 +37,22 @@ const currentYear = ref(2020)
 const playing = ref(false)
 let timer = null
 
-const result = computed(() => simulate(currentYear.value))
+// 当前年份数据（从缓存时间线查找，不再重复模拟）
+const currentPopulations = computed(() => {
+  const entry = timeline.value.find(t => t.year === currentYear.value)
+  return entry ? entry.populations : []
+})
 
+const currentStats = computed(() => {
+  const entry = timelineStats.value.find(t => t.year === currentYear.value)
+  return entry || { total: 0, medianAge: 0, dependencyRatio: 0 }
+})
+
+// 年龄分布柱状图
 const chartOption = computed(() => {
-  const { ages, populations, stats } = result.value
-  if (!ages.length) return {}
+  const populations = currentPopulations.value
+  const a = ages.value
+  if (!a.length) return {}
 
   const maxPop = Math.max(...populations)
 
@@ -60,7 +72,7 @@ const chartOption = computed(() => {
     grid: { left: 60, right: 40, top: 50, bottom: 60 },
     xAxis: {
       type: 'category',
-      data: ages,
+      data: a,
       name: '年龄',
       axisLabel: { interval: 4 },
     },
@@ -76,9 +88,9 @@ const chartOption = computed(() => {
     series: [{
       type: 'bar',
       data: populations.map((pop, i) => {
-        const age = ages[i]
+        const age = a[i]
         const ratio = pop / maxPop
-        const item = {
+        return {
           value: pop,
           itemStyle: {
             color: age >= 60
@@ -88,13 +100,13 @@ const chartOption = computed(() => {
                 : `rgba(34, 197, 94, ${0.3 + ratio * 0.7})`,
           },
         }
-        return item
       }),
       barMaxWidth: 12,
     }],
   }
 })
 
+// 消费热点指数图
 const hotspotChartOption = computed(() => {
   const { years, series } = hotspotChartData.value
   if (!years.length) return {}
@@ -197,15 +209,15 @@ onMounted(() => loadData())
         </div>
         <div class="stat">
           <div class="stat-title">总人口</div>
-          <div class="stat-value text-secondary">{{ (result.stats.total / 100000000).toFixed(2) }}亿</div>
+          <div class="stat-value text-secondary">{{ (currentStats.total / 100000000).toFixed(2) }}亿</div>
         </div>
         <div class="stat">
           <div class="stat-title">中位年龄</div>
-          <div class="stat-value">{{ result.stats.medianAge }}岁</div>
+          <div class="stat-value">{{ currentStats.medianAge }}岁</div>
         </div>
         <div class="stat">
           <div class="stat-title">养老抚养比</div>
-          <div class="stat-value text-accent">{{ (result.stats.dependencyRatio * 100).toFixed(1) }}%</div>
+          <div class="stat-value text-accent">{{ (currentStats.dependencyRatio * 100).toFixed(1) }}%</div>
         </div>
       </div>
 
