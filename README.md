@@ -1,36 +1,43 @@
 ## 中国人口结构预测项目
 
-网上有很多中国人口的仿真预测，但都没有把人口结构图动态展示出来
+基于 2020 年人口普查数据，通过交互式可视化动态展示中国人口结构变化趋势，并标注特定年龄的核心消费热点，预测未来房产、教育、医疗等需求变化。
 
-本人才疏学浅，自己实现了一个非常粗略的人口结构图预测，同时标注上了特定年龄的核心消费，用来预测未来的房产、教育、医疗需求变化
+在线体验：[https://dao1023.github.io/population/](https://dao1023.github.io/population/)
 
-想了解结果的可以直接参考 [population_distribution_video.mp4](data/population_distribution_video.mp4)
+## 功能特性
+
+- 年龄分布柱状图，支持年份播放/拖动（1951-2200）
+- 可调参数：生育率覆盖、女性比例
+- 人口总览折线图（总人口、中位年龄、养老抚养比）
+- 消费热点指数图（公寓、婚房、改善房、教育、医疗、养老等）
+- 时间窗口双滑块，聚焦任意时间段
+- 算法：前向模拟（年龄移位 + 死亡率年度改善 0.5%/年）+ 反向逆推
 
 ## 项目结构
 
 ```
 population/
-├── data/                           # 数据文件
-│   ├── population_age_distribution.csv   # 2020年年龄分布基准
-│   ├── fertility_rate_forecast.csv       # 生育率预测 (2021-2200)
-│   ├── mortality_rate.csv                # 死亡率
-│   ├── full_population_projection.csv    # 完整人口预测数据 (1951-2200)
-│   └── population_distribution_video.mp4 # 可视化视频
-├── notebook/                       # Jupyter Notebook (数据预测+可视化)
-│   └── main.ipynb
-└── web/                            # Vue 3 + Vite 交互式可视化 (开发中)
+├── data/                           # 原始数据 (CSV)
+├── web/
+│   ├── public/data/                # JSON 数据 (由脚本转换)
+│   ├── src/
+│   │   ├── App.vue                 # 主界面
+│   │   ├── composables/
+│   │   │   └── usePopulation.js    # 核心模拟算法
+│   │   └── components/             # 图表组件
+│   └── vite.config.js
+├── notebook/                       # Jupyter Notebook (数据预测)
+└── .github/workflows/deploy.yml   # GitHub Pages 自动部署
 ```
 
 ## 运行方法
 
-### Notebook
-
-打开 `notebook/main.ipynb`，安装对应的 Python 环境后即可运行
-
-### Web (开发中)
-
 ```bash
 cd web
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
+
+## 部署
+
+push 到 master 自动通过 GitHub Actions 构建并部署到 GitHub Pages。
