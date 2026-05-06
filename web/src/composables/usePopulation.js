@@ -35,10 +35,11 @@ export function usePopulation() {
   async function loadData() {
     try {
       loading.value = true
+      const base = import.meta.env.BASE_URL
       const [ageRes, fertRes, mortRes] = await Promise.all([
-        fetch('/data/population_age_distribution.json').then(r => r.json()),
-        fetch('/data/fertility_rate_forecast.json').then(r => r.json()),
-        fetch('/data/mortality_rate.json').then(r => r.json()),
+        fetch(`${base}data/population_age_distribution.json`).then(r => r.json()),
+        fetch(`${base}data/fertility_rate_forecast.json`).then(r => r.json()),
+        fetch(`${base}data/mortality_rate.json`).then(r => r.json()),
       ])
       ageDistribution.value = ageRes.map(d => ({ age: d.age, population: d['2020'] }))
       fertilityForecast.value = fertRes
