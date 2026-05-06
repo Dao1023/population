@@ -116,7 +116,6 @@ export function usePopulation() {
       for (let year = baseYear + 1; year <= endYear; year++) {
         const fertilityRate = fertilityOverride.value ?? (fertMap[year] ?? 0.7)
         const newborns = calcNewborns(pop, simAges, fertilityRate, femaleRatio.value)
-        const oldest = pop[pop.length - 1]
         for (let i = pop.length - 1; i > 0; i--) pop[i] = pop[i - 1]
         pop[0] = newborns
         const mortImprovement = Math.pow(1 - 0.005, year - baseYear)
@@ -125,9 +124,6 @@ export function usePopulation() {
           const effectiveMort = baseMort * mortImprovement
           pop[i] = Math.round(pop[i] * (1 - effectiveMort))
         }
-        // 高龄累积：将移位前的最高龄存活者加回
-        const maxAgeMort = (mortMap[simAges[simAges.length - 1]] || 0) * mortImprovement
-        pop[pop.length - 1] += Math.round(oldest * (1 - maxAgeMort))
         if (year >= startYear) timelineData.push({ year, populations: [...pop] })
       }
     }
@@ -140,21 +136,13 @@ export function usePopulation() {
         const yearsBack = baseYear - year - 1
         const mortWorsening = yearsBack > 0 ? 1 / Math.pow(1 - 0.005, yearsBack) : 1
         const prev = new Array(pop.length).fill(0)
-        // 正常反推 ages 0 ~ (lastIdx-2)，从 pop[1] ~ pop[lastIdx-1] 反推
-        for (let i = 0; i < lastIdx - 1; i++) {
+        for (let i = 0; i < lastIdx; i++) {
           const baseMort = mortMap[simAges[i + 1]] || 0
           const effectiveMort = Math.min(baseMort * mortWorsening, 1)
           const survivalRate = 1 - effectiveMort
           prev[i] = survivalRate > 0 ? Math.round(pop[i + 1] / survivalRate) : 0
         }
-        // 开放式最高龄组：用平稳人口比率拆分
-        // 前向模型: pop[100] = (prev[99] + prev[100]) * sr[100]
-        // 平稳假设: prev[100] / (prev[99] + prev[100]) ≈ sr[100]
-        const maxAgeMort = Math.min((mortMap[simAges[lastIdx]] || 0) * mortWorsening, 1)
-        const maxAgeSr = 1 - maxAgeMort
-        const totalOpen = maxAgeSr > 0 ? pop[lastIdx] / maxAgeSr : 0
-        prev[lastIdx - 1] = Math.round(totalOpen * (1 - maxAgeSr))
-        prev[lastIdx] = Math.round(totalOpen * maxAgeSr)
+        prev[lastIdx] = 0
         pop.splice(0, pop.length, ...prev)
         backward.push({ year, populations: [...pop] })
       }
