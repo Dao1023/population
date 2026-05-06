@@ -135,20 +135,26 @@ export function usePopulation() {
     if (startYear < baseYear) {
       const pop = [...basePop]
       const backward = []
+      const lastIdx = pop.length - 1
       for (let year = baseYear - 1; year >= startYear; year--) {
-        const yearsBack = baseYear - year
-        // 死亡率随时间回推增大（医疗倒退）
-        const mortWorsening = 1 / Math.pow(1 - 0.005, yearsBack)
+        const yearsBack = baseYear - year - 1
+        const mortWorsening = yearsBack > 0 ? 1 / Math.pow(1 - 0.005, yearsBack) : 1
         const prev = new Array(pop.length).fill(0)
-        for (let i = 0; i < pop.length - 1; i++) {
+        // 正常反推 ages 0 ~ (lastIdx-2)，从 pop[1] ~ pop[lastIdx-1] 反推
+        for (let i = 0; i < lastIdx - 1; i++) {
           const baseMort = mortMap[simAges[i + 1]] || 0
           const effectiveMort = Math.min(baseMort * mortWorsening, 1)
           const survivalRate = 1 - effectiveMort
-          prev[i] = survivalRate > 0 ? pop[i + 1] / survivalRate : 0
-          prev[i] = Math.round(prev[i])
+          prev[i] = survivalRate > 0 ? Math.round(pop[i + 1] / survivalRate) : 0
         }
-        // 最高龄组无法唯一确定，置0（百岁老人极少）
-        prev[pop.length - 1] = 0
+        // 开放式最高龄组：用平稳人口比率拆分
+        // 前向模型: pop[100] = (prev[99] + prev[100]) * sr[100]
+        // 平稳假设: prev[100] / (prev[99] + prev[100]) ≈ sr[100]
+        const maxAgeMort = Math.min((mortMap[simAges[lastIdx]] || 0) * mortWorsening, 1)
+        const maxAgeSr = 1 - maxAgeMort
+        const totalOpen = maxAgeSr > 0 ? pop[lastIdx] / maxAgeSr : 0
+        prev[lastIdx - 1] = Math.round(totalOpen * (1 - maxAgeSr))
+        prev[lastIdx] = Math.round(totalOpen * maxAgeSr)
         pop.splice(0, pop.length, ...prev)
         backward.push({ year, populations: [...pop] })
       }
