@@ -32,7 +32,7 @@ useECharts([
 const {
   loading, error, loadData, yearRange, ages,
   timeline, timelineStats,
-  fertilityOverride, femaleRatio, generationTime,
+  fertilityOverride, femaleRatio,
   hotspots, hotspotChartData, hotspotSigma,
 } = usePopulation()
 
@@ -165,7 +165,7 @@ onMounted(() => loadData())
       <div class="card bg-base-100 shadow">
         <div class="card-body">
           <h2 class="card-title text-base">参数调节</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="label">
                 <span class="label-text">生育率覆盖 ({{ fertilityOverride ?? '原始' }})</span>
@@ -195,19 +195,6 @@ onMounted(() => loadData())
                 max="0.7"
                 step="0.01"
                 v-model.number="femaleRatio"
-                class="range range-sm range-secondary"
-              />
-            </div>
-            <div>
-              <label class="label">
-                <span class="label-text">生育代际时间 {{ generationTime }}年</span>
-              </label>
-              <input
-                type="range"
-                min="20"
-                max="40"
-                step="1"
-                v-model.number="generationTime"
                 class="range range-sm range-secondary"
               />
             </div>

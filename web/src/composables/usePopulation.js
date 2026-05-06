@@ -15,7 +15,6 @@ export function usePopulation() {
   // 可调参数
   const fertilityOverride = ref(null) // 覆盖生育率，null 表示用原始数据
   const femaleRatio = ref(0.5)        // 女性比例
-  const generationTime = ref(30)      // 生育代际时间
 
   // 消费热点配置
   const HOTSPOT_SIGMA = ref(1)
@@ -60,14 +59,14 @@ export function usePopulation() {
     return { min: 1951, max: fertilityForecast.value[fertilityForecast.value.length - 1].year }
   })
 
-  function calcNewborns(pop, ages, fertilityRate, femaleRatio, generationTime) {
+  function calcNewborns(pop, ages, fertilityRate, femaleRatio) {
     let fertilePop = 0
     for (let i = 0; i < ages.length; i++) {
       if (ages[i] >= 15 && ages[i] <= 49) {
         fertilePop += pop[i]
       }
     }
-    return Math.round(fertilePop * femaleRatio * fertilityRate / generationTime)
+    return Math.round(fertilePop * femaleRatio * fertilityRate / 35)
   }
 
   function calcStats(ages, populations) {
@@ -84,13 +83,12 @@ export function usePopulation() {
       }
     }
 
-    let young = 0, old = 0, working = 0
+    let old = 0, working = 0
     for (let i = 0; i < ages.length; i++) {
-      if (ages[i] < 60) young += populations[i]
-      else old += populations[i]
+      if (ages[i] >= 60) old += populations[i]
       if (ages[i] >= 15 && ages[i] <= 59) working += populations[i]
     }
-    const dependencyRatio = young > 0 ? old / young : 0
+    const dependencyRatio = working > 0 ? old / working : 0
 
     return { total, workingPop: working, medianAge, dependencyRatio }
   }
@@ -117,12 +115,19 @@ export function usePopulation() {
       if (baseYear >= startYear) timelineData.push({ year: baseYear, populations: [...pop] })
       for (let year = baseYear + 1; year <= endYear; year++) {
         const fertilityRate = fertilityOverride.value ?? (fertMap[year] ?? 0.7)
-        const newborns = calcNewborns(pop, simAges, fertilityRate, femaleRatio.value, generationTime.value)
+        const newborns = calcNewborns(pop, simAges, fertilityRate, femaleRatio.value)
+        const oldest = pop[pop.length - 1]
         for (let i = pop.length - 1; i > 0; i--) pop[i] = pop[i - 1]
         pop[0] = newborns
+        const mortImprovement = Math.pow(1 - 0.005, year - baseYear)
         for (let i = 0; i < pop.length; i++) {
-          pop[i] = Math.round(pop[i] * (1 - (mortMap[simAges[i]] || 0)))
+          const baseMort = mortMap[simAges[i]] || 0
+          const effectiveMort = baseMort * mortImprovement
+          pop[i] = Math.round(pop[i] * (1 - effectiveMort))
         }
+        // 高龄累积：将移位前的最高龄存活者加回
+        const maxAgeMort = (mortMap[simAges[simAges.length - 1]] || 0) * mortImprovement
+        pop[pop.length - 1] += Math.round(oldest * (1 - maxAgeMort))
         if (year >= startYear) timelineData.push({ year, populations: [...pop] })
       }
     }
@@ -131,8 +136,20 @@ export function usePopulation() {
       const pop = [...basePop]
       const backward = []
       for (let year = baseYear - 1; year >= startYear; year--) {
-        for (let i = 0; i < pop.length - 1; i++) pop[i] = pop[i + 1]
-        pop[pop.length - 1] = 0
+        const yearsBack = baseYear - year
+        // 死亡率随时间回推增大（医疗倒退）
+        const mortWorsening = 1 / Math.pow(1 - 0.005, yearsBack)
+        const prev = new Array(pop.length).fill(0)
+        for (let i = 0; i < pop.length - 1; i++) {
+          const baseMort = mortMap[simAges[i + 1]] || 0
+          const effectiveMort = Math.min(baseMort * mortWorsening, 1)
+          const survivalRate = 1 - effectiveMort
+          prev[i] = survivalRate > 0 ? pop[i + 1] / survivalRate : 0
+          prev[i] = Math.round(prev[i])
+        }
+        // 最高龄组无法唯一确定，置0（百岁老人极少）
+        prev[pop.length - 1] = 0
+        pop.splice(0, pop.length, ...prev)
         backward.push({ year, populations: [...pop] })
       }
       backward.reverse()
@@ -185,7 +202,6 @@ export function usePopulation() {
     // 可调参数
     fertilityOverride,
     femaleRatio,
-    generationTime,
     // 消费热点
     hotspots,
     hotspotSigma: HOTSPOT_SIGMA,
