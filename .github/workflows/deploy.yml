@@ -3,6 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [master]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,11 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -40,5 +38,26 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment_retry.outputs.page_url || steps.deployment.outputs.page_url }}
+    steps:
+      # deploy-pages 偶尔拿到空的 artifact 列表（github 侧瞬时错误）。
+      # build 与 deploy 已拆成两个 job：重跑 deploy 不会再上传第二个同名 artifact；
+      # 这里再加一次自动重试，避免整条流水线因为一次 API 抖动而失败。
       - uses: actions/deploy-pages@v4
         id: deployment
+        continue-on-error: true
+      - name: Wait before retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+      - uses: actions/deploy-pages@v4
+        id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+      - name: Fail if both attempts failed
+        if: steps.deployment.outcome == 'failure' && steps.deployment_retry.outcome == 'failure'
+        run: exit 1
