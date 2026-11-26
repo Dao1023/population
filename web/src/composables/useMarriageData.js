@@ -9,6 +9,8 @@ const annual = ref([])
 const quarterly = ref([])
 const provinces = ref([])
 const meta = ref(null)
+// 结婚率序列：{ meta: { unit, denominators }, rows: [...] }
+const rates = ref({ meta: null, rows: [] })
 const loading = ref(true)
 const error = ref(null)
 
@@ -30,12 +32,18 @@ function ensureLoaded() {
     fetchJson('marriage_quarterly.json'),
     fetchJson('marriage_provinces.json'),
     fetchJson('marriage_meta.json'),
+    // 率序列由独立脚本产出：缺失时只让这一张图空着，不拖垮整页
+    fetchJson('marriage_rate_series.json').catch(() => ({ meta: null, rows: [] })),
   ])
-    .then(([a, q, p, m]) => {
+    .then(([a, q, p, m, r]) => {
       annual.value = a
       quarterly.value = q
       provinces.value = p
       meta.value = m
+      rates.value = {
+        meta: r?.meta ?? null,
+        rows: Array.isArray(r?.rows) ? r.rows : [],
+      }
       loading.value = false
     })
     .catch(e => {
@@ -109,6 +117,7 @@ export function useMarriageData() {
     quarterly,
     provinces,
     meta,
+    rates,
     loading,
     error,
     ensureLoaded,

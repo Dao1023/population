@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "data": "node ../scripts/csv2json.mjs",
+    "data": "node ../scripts/csv2json.mjs && node ../scripts/build_marriage_rates.mjs",
     "validate": "node ../scripts/validate_data.mjs",
     "data:marriage": "python ../scripts/marriage_xlsx2csv.py && node ../scripts/csv2json.mjs"
   },

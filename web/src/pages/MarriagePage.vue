@@ -3,13 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { useMarriageData } from '../composables/useMarriageData.js'
 import { PROVINCE_METRICS, getProvinceMetric } from '../lib/marriageOptions.js'
 import AnnualMarriageChart from '../components/marriage/AnnualMarriageChart.vue'
+import MarriageRateChart from '../components/marriage/MarriageRateChart.vue'
 import QuarterlyMarriageChart from '../components/marriage/QuarterlyMarriageChart.vue'
 import DivorceRatioChart from '../components/marriage/DivorceRatioChart.vue'
 import ProvinceRankChart from '../components/marriage/ProvinceRankChart.vue'
 import ProvinceMapChart from '../components/marriage/ProvinceMapChart.vue'
 import SourceNote from '../components/ui/SourceNote.vue'
 
-const { annual, quarterly, provinces, meta, loading, error, ensureLoaded, kpis } = useMarriageData()
+const { annual, quarterly, provinces, meta, rates, loading, error, ensureLoaded, kpis } =
+  useMarriageData()
 
 const provinceMetric = ref('ratio')
 const metricDef = computed(() => getProvinceMetric(provinceMetric.value))
@@ -97,6 +99,13 @@ function retry() {
           离婚分年数据自 2010 年起公布；2025 年离婚为<b>初步数</b>，以空心点表示，不宜据此判断婚姻稳定性回升。
         </p>
       </section>
+
+      <!-- 结婚率对比：同一分子换分母，随选随比 -->
+      <MarriageRateChart
+        :rows="rates.rows"
+        :denominators="rates.meta?.denominators || []"
+        :height="320"
+      />
 
       <!-- 季度折线 -->
       <section class="panel p-4 sm:p-5">

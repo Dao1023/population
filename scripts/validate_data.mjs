@@ -150,6 +150,58 @@ if (meta) {
   check('注明 2025 离婚为初步数', JSON.stringify(meta).includes('初步数'))
 }
 
+console.log('\n[结婚率] marriage_rate_series.json')
+const rateSeries = load('marriage_rate_series.json')
+if (rateSeries) {
+  const rows = Array.isArray(rateSeries.rows) ? rateSeries.rows : []
+  const RATE_IDS = ['crude', 'age20_39', 'age15_49', 'general']
+  const byYear = y => rows.find(r => r.year === y)
+  const rateOf = (y, id) => byYear(y)?.rates?.[id]
+  const inRange = (v, lo, hi) => Number.isFinite(v) && v >= lo && v <= hi
+
+  check('行数 = 26', rows.length === 26, `实际 ${rows.length}`)
+  const years = rows.map(r => r.year)
+  check(
+    '年份 2000–2025 连续',
+    years.length === 26 && years.every((y, i) => y === 2000 + i),
+    `${years[0]}–${years[years.length - 1]}`,
+  )
+  check('单位 = ‰', rateSeries.meta?.unit === '‰', String(rateSeries.meta?.unit))
+  check(
+    'meta.denominators 四个口径齐全',
+    JSON.stringify((rateSeries.meta?.denominators || []).map(d => d.id)) === JSON.stringify(RATE_IDS),
+  )
+
+  check('crude 2013 ∈ [9.5, 10.5]‰', inRange(rateOf(2013, 'crude'), 9.5, 10.5), `${rateOf(2013, 'crude')}‰`)
+  check('crude 2024 ∈ [4.2, 4.5]‰', inRange(rateOf(2024, 'crude'), 4.2, 4.5), `${rateOf(2024, 'crude')}‰`)
+  check(
+    'age20_39 2013 ∈ [31, 34]‰',
+    inRange(rateOf(2013, 'age20_39'), 31, 34),
+    `${rateOf(2013, 'age20_39')}‰`,
+  )
+  check(
+    '任一行 rate 不为 NaN',
+    rows.every(r => RATE_IDS.every(id => {
+      const v = r?.rates?.[id]
+      return v === null || (Number.isFinite(v) && !Number.isNaN(v))
+    })),
+    rows.filter(r => RATE_IDS.some(id => Number.isNaN(r?.rates?.[id]))).map(r => r.year).join(',') || '无 NaN',
+  )
+  check(
+    'denoms 与 rates 同为数值（不为占位 0）',
+    rows.every(r => r.denoms && Number.isFinite(r.denoms.pop_20_39_wan) && r.denoms.pop_20_39_wan > 0),
+  )
+
+  for (const y of [2000, 2013, 2024, 2025]) {
+    const r = byYear(y)
+    if (!r) continue
+    console.log(
+      `  · ${y}: crude=${r.rates.crude} age20_39=${r.rates.age20_39} age15_49=${r.rates.age15_49}` +
+        ` general=${r.rates.general}（20–39=${r.denoms.pop_20_39_wan}万，15+未婚=${r.denoms.pop_15plus_unmarried_wan}万）`,
+    )
+  }
+}
+
 console.log('')
 if (failures.length) {
   console.error(`校验失败：${failures.length} 项未通过（通过 ${passed} 项）`)

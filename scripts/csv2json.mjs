@@ -71,8 +71,15 @@ export function csvToJson(csvText) {
 // 确保 output 目录存在
 mkdirSync(outputDir, { recursive: true })
 
+// 只在构建期参与计算、前端不直接请求的 CSV，不产出 JSON（避免把 363KB 的死文件发到线上）
+const SKIP_CSV = new Set([
+  'full_population_projection.csv', // 仅 build_marriage_rates.mjs 读年龄结构；前端页首屏不需要
+  'census_never_married_share.csv', // 仅 build_marriage_rates.mjs 读
+  'population_total_annual.csv', // 仅 build_marriage_rates.mjs 读；总人口已并入 marriage_rate_series.json
+])
+
 // 1) data 顶层所有 CSV -> JSON（人口 4 个 + 婚姻 3 个，继续用同名 json）
-const files = readdirSync(dataDir).filter(f => f.endsWith('.csv')).sort()
+const files = readdirSync(dataDir).filter(f => f.endsWith('.csv') && !SKIP_CSV.has(f)).sort()
 if (!files.length) {
   console.error(`data 目录下没有 CSV：${dataDir}`)
   process.exit(1)

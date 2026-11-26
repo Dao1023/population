@@ -1,0 +1,538 @@
+{
+  "meta": {
+    "unit": "‰",
+    "generated_at": "2026-11-26",
+    "notes": [
+      "四种口径均为“结婚对数（万对）÷ 分母（万人）× 1000”，单位 ‰。",
+      "总人口：国家统计局《中国统计年鉴 2025》表 2-1 年末人口（2000–2024）；2025 年取《2025 年国民经济和社会发展统计公报》初步数 140489 万人。",
+      "分年龄分母：直接用 full_population_projection.csv 的分年龄人口（万人）。该序列总量偏低，但缺口集中在 40 岁以上（2000 年 0–14 岁 2.91 亿 vs 官方 2.90 亿，15+ 仅 7.93 亿 vs 官方 9.77 亿）；若按官方总人口整体缩放，会把 40+ 缺口摊到 20–39 岁，使 2000 年 20–39 分母虚高到 5.03 亿（实约 4.3 亿）、2013 年 age20_39 降到 30.67‰。可用 MARRIAGE_RATE_SCALE=official 切回字面缩放口径。",
+      "该投影缺 2021 年列，按 (2020 + 2022) / 2 逐年插值后再参与计算。",
+      "15 岁以上未婚比例来自 2010 年六普、2020 年七普表 5-3（长表 10% 抽样），65 岁及以上为合并组，按该组合计未婚比例填充 65–100 岁；详见 data/census_never_married_share.source.md。",
+      "general 口径：2011–2019 按 2010/2020 两次普查线性插值（flags=census/interpolated）；2000–2009 沿用 2010 年剖面、2021–2025 沿用 2020 年剖面（flags=extrapolated，两端为外推区）。",
+      "2025 年结婚对数与总人口均为初步数，后续可能修订；分年龄结构在 2021–2025 全部依赖 2020 年普查剖面外推。",
+      "分母为 0 或缺失时该口径记 null，不做补零；rates 允许为 null，前端断线。"
+    ],
+    "denominators": [
+      {
+        "id": "crude",
+        "label": "总人口",
+        "short": "总人口"
+      },
+      {
+        "id": "age20_39",
+        "label": "20–39 岁人口",
+        "short": "20–39 岁"
+      },
+      {
+        "id": "age15_49",
+        "label": "15–49 岁人口",
+        "short": "15–49 岁"
+      },
+      {
+        "id": "general",
+        "label": "15 岁以上未婚人口",
+        "short": "15+ 未婚"
+      }
+    ],
+    "quality": {
+      "age_bands": "projection-age-structure",
+      "general": "census-interpolated"
+    }
+  },
+  "rows": [
+    {
+      "year": 2000,
+      "marriages_wan": 848.5,
+      "pop_total_wan": 126743,
+      "rates": {
+        "crude": 6.69,
+        "age20_39": 19.74,
+        "age15_49": 12.55,
+        "general": 38.64
+      },
+      "denoms": {
+        "pop_20_39_wan": 42974.5,
+        "pop_15_49_wan": 67614.7,
+        "pop_15plus_unmarried_wan": 21960.2
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2001,
+      "marriages_wan": 805,
+      "pop_total_wan": 127627,
+      "rates": {
+        "crude": 6.31,
+        "age20_39": 18.37,
+        "age15_49": 11.72,
+        "general": 36.22
+      },
+      "denoms": {
+        "pop_20_39_wan": 43825,
+        "pop_15_49_wan": 68659.2,
+        "pop_15plus_unmarried_wan": 22226.9
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2002,
+      "marriages_wan": 786,
+      "pop_total_wan": 128453,
+      "rates": {
+        "crude": 6.12,
+        "age20_39": 17.83,
+        "age15_49": 11.26,
+        "general": 34.41
+      },
+      "denoms": {
+        "pop_20_39_wan": 44091.7,
+        "pop_15_49_wan": 69798.8,
+        "pop_15plus_unmarried_wan": 22844.4
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2003,
+      "marriages_wan": 811.4,
+      "pop_total_wan": 129227,
+      "rates": {
+        "crude": 6.28,
+        "age20_39": 18.7,
+        "age15_49": 11.47,
+        "general": 34.83
+      },
+      "denoms": {
+        "pop_20_39_wan": 43393.7,
+        "pop_15_49_wan": 70740.6,
+        "pop_15plus_unmarried_wan": 23293.4
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2004,
+      "marriages_wan": 867.2,
+      "pop_total_wan": 129988,
+      "rates": {
+        "crude": 6.67,
+        "age20_39": 20.13,
+        "age15_49": 12.1,
+        "general": 36.31
+      },
+      "denoms": {
+        "pop_20_39_wan": 43087.7,
+        "pop_15_49_wan": 71660.8,
+        "pop_15plus_unmarried_wan": 23885.6
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2005,
+      "marriages_wan": 823.1,
+      "pop_total_wan": 130756,
+      "rates": {
+        "crude": 6.29,
+        "age20_39": 19.26,
+        "age15_49": 11.33,
+        "general": 33.56
+      },
+      "denoms": {
+        "pop_20_39_wan": 42735.7,
+        "pop_15_49_wan": 72628.6,
+        "pop_15plus_unmarried_wan": 24526.3
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2006,
+      "marriages_wan": 945,
+      "pop_total_wan": 131448,
+      "rates": {
+        "crude": 7.19,
+        "age20_39": 22.16,
+        "age15_49": 12.92,
+        "general": 38.4
+      },
+      "denoms": {
+        "pop_20_39_wan": 42650.1,
+        "pop_15_49_wan": 73115,
+        "pop_15plus_unmarried_wan": 24610.2
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2007,
+      "marriages_wan": 991.4,
+      "pop_total_wan": 132129,
+      "rates": {
+        "crude": 7.5,
+        "age20_39": 22.98,
+        "age15_49": 13.53,
+        "general": 40.44
+      },
+      "denoms": {
+        "pop_20_39_wan": 43148.8,
+        "pop_15_49_wan": 73297.9,
+        "pop_15plus_unmarried_wan": 24517.5
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2008,
+      "marriages_wan": 1098.3,
+      "pop_total_wan": 132802,
+      "rates": {
+        "crude": 8.27,
+        "age20_39": 25.58,
+        "age15_49": 14.93,
+        "general": 45.19
+      },
+      "denoms": {
+        "pop_20_39_wan": 42942.1,
+        "pop_15_49_wan": 73581.3,
+        "pop_15plus_unmarried_wan": 24306.1
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2009,
+      "marriages_wan": 1212.2,
+      "pop_total_wan": 133450,
+      "rates": {
+        "crude": 9.08,
+        "age20_39": 28.16,
+        "age15_49": 16.37,
+        "general": 50.74
+      },
+      "denoms": {
+        "pop_20_39_wan": 43042.7,
+        "pop_15_49_wan": 74050.4,
+        "pop_15plus_unmarried_wan": 23890.4
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2010,
+      "marriages_wan": 1241,
+      "pop_total_wan": 134091,
+      "rates": {
+        "crude": 9.25,
+        "age20_39": 28.84,
+        "age15_49": 16.66,
+        "general": 52.91
+      },
+      "denoms": {
+        "pop_20_39_wan": 43033.8,
+        "pop_15_49_wan": 74475.1,
+        "pop_15plus_unmarried_wan": 23455.1
+      },
+      "flags": {
+        "general": "census"
+      }
+    },
+    {
+      "year": 2011,
+      "marriages_wan": 1302.4,
+      "pop_total_wan": 134916,
+      "rates": {
+        "crude": 9.65,
+        "age20_39": 30.56,
+        "age15_49": 17.36,
+        "general": 55.92
+      },
+      "denoms": {
+        "pop_20_39_wan": 42619.2,
+        "pop_15_49_wan": 75005.9,
+        "pop_15plus_unmarried_wan": 23289.4
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2012,
+      "marriages_wan": 1323.6,
+      "pop_total_wan": 135922,
+      "rates": {
+        "crude": 9.74,
+        "age20_39": 31.41,
+        "age15_49": 17.74,
+        "general": 57.38
+      },
+      "denoms": {
+        "pop_20_39_wan": 42139.1,
+        "pop_15_49_wan": 74625.3,
+        "pop_15plus_unmarried_wan": 23066.9
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2013,
+      "marriages_wan": 1346.9,
+      "pop_total_wan": 136726,
+      "rates": {
+        "crude": 9.85,
+        "age20_39": 32.34,
+        "age15_49": 18.31,
+        "general": 58.94
+      },
+      "denoms": {
+        "pop_20_39_wan": 41645.6,
+        "pop_15_49_wan": 73545.8,
+        "pop_15plus_unmarried_wan": 22850.4
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2014,
+      "marriages_wan": 1306.7,
+      "pop_total_wan": 137646,
+      "rates": {
+        "crude": 9.49,
+        "age20_39": 31.79,
+        "age15_49": 17.98,
+        "general": 57.99
+      },
+      "denoms": {
+        "pop_20_39_wan": 41107.4,
+        "pop_15_49_wan": 72683.4,
+        "pop_15plus_unmarried_wan": 22532.9
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2015,
+      "marriages_wan": 1224.7,
+      "pop_total_wan": 138326,
+      "rates": {
+        "crude": 8.85,
+        "age20_39": 30.02,
+        "age15_49": 17.05,
+        "general": 54.91
+      },
+      "denoms": {
+        "pop_20_39_wan": 40796.1,
+        "pop_15_49_wan": 71829.2,
+        "pop_15plus_unmarried_wan": 22305.8
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2016,
+      "marriages_wan": 1142.8,
+      "pop_total_wan": 139232,
+      "rates": {
+        "crude": 8.21,
+        "age20_39": 28.28,
+        "age15_49": 16.12,
+        "general": 51.73
+      },
+      "denoms": {
+        "pop_20_39_wan": 40407.5,
+        "pop_15_49_wan": 70906.8,
+        "pop_15plus_unmarried_wan": 22092.8
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2017,
+      "marriages_wan": 1063.1,
+      "pop_total_wan": 140011,
+      "rates": {
+        "crude": 7.59,
+        "age20_39": 26.47,
+        "age15_49": 15.14,
+        "general": 48.58
+      },
+      "denoms": {
+        "pop_20_39_wan": 40164.3,
+        "pop_15_49_wan": 70215.1,
+        "pop_15plus_unmarried_wan": 21884.7
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2018,
+      "marriages_wan": 1013.9,
+      "pop_total_wan": 140541,
+      "rates": {
+        "crude": 7.21,
+        "age20_39": 25.45,
+        "age15_49": 14.7,
+        "general": 46.75
+      },
+      "denoms": {
+        "pop_20_39_wan": 39832.9,
+        "pop_15_49_wan": 68977.7,
+        "pop_15plus_unmarried_wan": 21688.8
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2019,
+      "marriages_wan": 927.3,
+      "pop_total_wan": 141008,
+      "rates": {
+        "crude": 6.58,
+        "age20_39": 23.6,
+        "age15_49": 13.63,
+        "general": 42.75
+      },
+      "denoms": {
+        "pop_20_39_wan": 39292.4,
+        "pop_15_49_wan": 68055,
+        "pop_15plus_unmarried_wan": 21689.4
+      },
+      "flags": {
+        "general": "interpolated"
+      }
+    },
+    {
+      "year": 2020,
+      "marriages_wan": 814.3,
+      "pop_total_wan": 141212,
+      "rates": {
+        "crude": 5.77,
+        "age20_39": 20.88,
+        "age15_49": 12.16,
+        "general": 37.45
+      },
+      "denoms": {
+        "pop_20_39_wan": 38994.7,
+        "pop_15_49_wan": 66981.1,
+        "pop_15plus_unmarried_wan": 21743.7
+      },
+      "flags": {
+        "general": "census"
+      }
+    },
+    {
+      "year": 2021,
+      "marriages_wan": 763.6,
+      "pop_total_wan": 141260,
+      "rates": {
+        "crude": 5.41,
+        "age20_39": 19.91,
+        "age15_49": 11.55,
+        "general": 35.33
+      },
+      "denoms": {
+        "pop_20_39_wan": 38344.9,
+        "pop_15_49_wan": 66129.1,
+        "pop_15plus_unmarried_wan": 21613.3
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2022,
+      "marriages_wan": 683.5,
+      "pop_total_wan": 141175,
+      "rates": {
+        "crude": 4.84,
+        "age20_39": 18.13,
+        "age15_49": 10.47,
+        "general": 31.82
+      },
+      "denoms": {
+        "pop_20_39_wan": 37695,
+        "pop_15_49_wan": 65277.1,
+        "pop_15plus_unmarried_wan": 21483
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2023,
+      "marriages_wan": 768,
+      "pop_total_wan": 140967,
+      "rates": {
+        "crude": 5.45,
+        "age20_39": 20.68,
+        "age15_49": 11.88,
+        "general": 35.67
+      },
+      "denoms": {
+        "pop_20_39_wan": 37137,
+        "pop_15_49_wan": 64632.1,
+        "pop_15plus_unmarried_wan": 21532.6
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2024,
+      "marriages_wan": 610.6,
+      "pop_total_wan": 140828,
+      "rates": {
+        "crude": 4.34,
+        "age20_39": 16.64,
+        "age15_49": 9.52,
+        "general": 28.18
+      },
+      "denoms": {
+        "pop_20_39_wan": 36685.8,
+        "pop_15_49_wan": 64129,
+        "pop_15plus_unmarried_wan": 21666.2
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    },
+    {
+      "year": 2025,
+      "marriages_wan": 731,
+      "pop_total_wan": 140489,
+      "rates": {
+        "crude": 5.2,
+        "age20_39": 20.17,
+        "age15_49": 11.46,
+        "general": 33.53
+      },
+      "denoms": {
+        "pop_20_39_wan": 36238,
+        "pop_15_49_wan": 63789.1,
+        "pop_15plus_unmarried_wan": 21801.2
+      },
+      "flags": {
+        "general": "extrapolated"
+      }
+    }
+  ]
+}
