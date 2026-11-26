@@ -13,6 +13,24 @@ import SourceNote from '../components/ui/SourceNote.vue'
 const { annual, quarterly, provinces, meta, rates, loading, error, ensureLoaded, kpis } =
   useMarriageData()
 
+// 年度图数据：2026 年只在 marriage_rate_series.json 里（estimated=true），运行时拼到实测序列末尾；
+// 离婚 2026 尚未公布，留空。
+const annualWithEstimate = computed(() => {
+  const estimate = rates.value.rows.find(r => r.estimated === true)
+  if (!estimate) return annual.value
+  if (annual.value.some(r => r.year === estimate.year)) return annual.value
+  return [
+    ...annual.value,
+    {
+      year: estimate.year,
+      marriages_wan: estimate.marriages_wan,
+      divorces_wan: null,
+      estimated: true,
+      estimate: estimate.estimate,
+    },
+  ]
+})
+
 const provinceMetric = ref('ratio')
 const metricDef = computed(() => getProvinceMetric(provinceMetric.value))
 const provinceHeight = computed(() =>
@@ -92,11 +110,11 @@ function retry() {
       <section class="panel p-4 sm:p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 class="text-base font-semibold text-[#0f172a]">年度结婚与离婚登记</h2>
-          <span class="text-[11px] text-[#94a3b8]">2000–2025 · 单位：万对</span>
+          <span class="text-[11px] text-[#94a3b8]">2000–2026 · 单位：万对</span>
         </div>
-        <AnnualMarriageChart :data="annual" :height="340" class="mt-2" />
+        <AnnualMarriageChart :data="annualWithEstimate" :height="340" class="mt-2" />
         <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          离婚分年数据自 2010 年起公布；2025 年离婚为<b>初步数</b>，以空心点表示，不宜据此判断婚姻稳定性回升。
+          离婚分年数据自 2010 年起公布；2025 年离婚为<b>初步数</b>，以空心点表示，不宜据此判断婚姻稳定性回升。2026 年（浅色点）为前三季实测 + Q4 反推，非最终数；2026 年离婚数尚未公布。
         </p>
       </section>
 
@@ -115,7 +133,7 @@ function retry() {
         </div>
         <QuarterlyMarriageChart :data="quarterly" :height="320" class="mt-2" />
         <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          每年 Q1 最低、Q2–Q3 冲高，是季节性的锯齿，不是趋势；2026 年数据截至 9 月 30 日，虚线段为 2026 年前三季，不与全年值同轴比较。
+          每年 Q1 最低、Q2–Q3 冲高，是季节性的锯齿，不是趋势；2026 年数据截至 9 月 30 日，仅有前三季，不与全年值同轴比较。
         </p>
       </section>
 

@@ -69,7 +69,7 @@ export const HOTSPOTS = [
 
 /**
  * 情景推演：锁定已出生人口队列，25–34 岁分年龄结婚强度保持 2024 年水平。
- * 2025 年实测值由 marriage_annual.json 提供，是实线与虚线的接点。
+ * 2025 年实测值由 marriage_annual.json 提供，是实测段与情景推演段（虚线）的接点。
  */
 export const SCENARIO = {
   bandPct: 0.08,

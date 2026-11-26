@@ -4,8 +4,11 @@
  *
  * 数据契约：web/public/data/marriage_rate_series.json
  *   { meta: { unit, denominators }, rows: [{ year, marriages_wan, rates: {crude,...},
- *     denoms: {...}, flags: { general: 'extrapolated' } }] }
+ *     denoms: {...}, flags: { general: 'extrapolated' }, estimated? }] }
  * rates.* 允许为 null（该年该口径不可算），一律断线，绝不补 0。
+ *
+ * 画法：已发布/估算的数据一律实线。general 口径在 2000–2009、2021–2026 的未婚分母
+ * 是按普查剖面外推的，但结婚对数本身来自统计，因此只用文字说明估算范围，不用虚线区分。
  */
 
 // 颜色固定：与页面主色一致，四条线在明暗背景上都可分辨
@@ -53,28 +56,6 @@ function round2(v, digits = 2) {
 }
 
 /**
- * general 口径被标为 extrapolated 的年份可能分处两端（早期外推、近期外推），
- * 按连续区间拆开返回 [{start,end}]；中间有普查实测的年份不受影响。
- */
-function extrapolatedSegments(rows) {
-  const segs = []
-  let cur = null
-  rows.forEach((r, i) => {
-    if (r?.flags?.general === 'extrapolated') {
-      if (!cur) {
-        cur = { start: i, end: i }
-        segs.push(cur)
-      } else {
-        cur.end = i
-      }
-    } else {
-      cur = null
-    }
-  })
-  return segs
-}
-
-/**
  * 选「最陡」的一条线：按首末两点的相对变化率比较，
  * 这样 4‰ 量级和 60‰ 量级可以在同一把尺子上比，不会被绝对数值大的口径抢占。
  */
@@ -113,19 +94,9 @@ export function buildRateCompareOption(rows = [], selectedIds = DEFAULT_RATE_IDS
     const def = denomOf(id)
     const color = RATE_COLORS[id]
     const values = data.map(r => finiteOrNull(r?.rates?.[id]))
-    // 只有 general 有推算年份，且可能分处两端：实线让出推算年，每段单独一条虚线接出去
-    const segments = id === 'general' ? extrapolatedSegments(data) : []
-    const inSegment = i => segments.some(s => i >= s.start && i <= s.end)
-    const segName = s => {
-      const from = data[s.start].year
-      const to = data[s.end].year
-      return from === to
-        ? `${def.label}（${from} 年推算）`
-        : `${def.label}（${from}–${to} 年推算）`
-    }
 
-    const own = []
-    const baseSeries = {
+    // 所有年份一律实线：已发布数据直接用；general 的外推年份只在文字里说明。
+    const item = {
       name: def.label,
       type: 'line',
       symbol: 'circle',
@@ -136,39 +107,19 @@ export function buildRateCompareOption(rows = [], selectedIds = DEFAULT_RATE_IDS
       lineStyle: { width: id === 'crude' ? 2.6 : 2, color },
       itemStyle: { color },
       emphasis: { focus: 'series', scale: 1.4 },
+      data: values,
     }
 
-    // 实线部分：只把推算年置空
-    own.push({
-      ...baseSeries,
-      data: values.map((v, i) => (inSegment(i) ? null : v)),
-    })
-
-    // 虚线部分：每段推算年，两端各借一个实测点作接点，虚实交界处线才不会断
-    for (const seg of segments) {
-      const from = Math.max(0, seg.start - 1)
-      const to = Math.min(values.length - 1, seg.end + 1)
-      own.push({
-        ...baseSeries,
-        name: segName(seg),
-        data: values.map((v, i) => (i >= from && i <= to ? v : null)),
-        lineStyle: { width: id === 'crude' ? 2.4 : 2, type: 'dashed', color },
-        symbolSize: 3,
-      })
-    }
-
-    // 标注挂到真正承载该点的 series 上（推算年份会落在对应虚线段里）
+    // 标注点：2013 是结婚对数峰值年，2024 是最近的完整年；
+    // 值缺失就跳过（不允许凭坐标硬造点）。
     if (id === steepestId) {
       const points = MARK_YEARS.map(year => {
         const i = data.findIndex(r => Number(r.year) === year)
         const value = i >= 0 ? values[i] : null
         if (value == null) return null
-        const seg = segments.find(s => i >= s.start && i <= s.end)
         return {
           year,
           value,
-          index: i,
-          seriesName: seg ? segName(seg) : def.label,
           // 2024 靠右，标签向左展开并略微下移，避开折线；2013 在中部，放上方即可
           label:
             year >= 2024
@@ -177,42 +128,33 @@ export function buildRateCompareOption(rows = [], selectedIds = DEFAULT_RATE_IDS
         }
       }).filter(Boolean)
 
-      const bySeries = new Map()
-      for (const p of points) {
-        if (!bySeries.has(p.seriesName)) bySeries.set(p.seriesName, [])
-        bySeries.get(p.seriesName).push(p)
+      item.markPoint = {
+        symbol: 'circle',
+        symbolSize: 7,
+        itemStyle: { color, borderColor: '#ffffff', borderWidth: 1.5 },
+        label: {
+          show: true,
+          color: '#334155',
+          fontSize: 10,
+          // 白描边代替白底：折线从字间穿过但文字仍清楚，也不会在线上留一块空白
+          textBorderColor: '#ffffff',
+          textBorderWidth: 2.5,
+          formatter: params => `${params.data.year} ${Number(params.data.value).toFixed(1)}‰`,
+        },
+        data: points.map(p => ({
+          name: String(p.year),
+          year: p.year,
+          coord: [String(p.year), p.value],
+          value: p.value,
+          label: p.label,
+        })),
       }
-      own.forEach(s => {
-        const pts = bySeries.get(s.name)
-        if (!pts?.length) return
-        s.markPoint = {
-          symbol: 'circle',
-          symbolSize: 7,
-          itemStyle: { color, borderColor: '#ffffff', borderWidth: 1.5 },
-          label: {
-            show: true,
-            color: '#334155',
-            fontSize: 10,
-            // 白描边代替白底：折线从字间穿过但文字仍清楚，也不会在线上留一块空白
-            textBorderColor: '#ffffff',
-            textBorderWidth: 2.5,
-            formatter: params => `${params.data.year} ${Number(params.data.value).toFixed(1)}‰`,
-          },
-          data: pts.map(p => ({
-            name: String(p.year),
-            year: p.year,
-            coord: [String(p.year), p.value],
-            value: p.value,
-            label: p.label,
-          })),
-        }
-      })
     }
 
-    series.push(...own)
+    series.push(item)
   }
 
-  // 提示框按年份一次性汇总，不随 series 逐条列，避免虚线段重复一行
+  // 提示框按年份一次性汇总，不随 series 逐条列
   const unit = '‰'
   return {
     animationDuration: 500,
@@ -230,13 +172,11 @@ export function buildRateCompareOption(rows = [], selectedIds = DEFAULT_RATE_IDS
         for (const id of ids) {
           const def = denomOf(id)
           const v = round2(row?.rates?.[id])
-          const extrapolated = id === 'general' && row?.flags?.general === 'extrapolated'
-          const tag = extrapolated ? '<span style="color:#94a3b8;font-size:11px"> · 推算</span>' : ''
           const valueText =
             v == null
               ? '<span style="color:#94a3b8">—</span>'
               : `<b style="color:${RATE_COLORS[id]}">${v.toFixed(2)}</b> ${unit}`
-          html += `<div style="line-height:1.6">${def.label} ${valueText}${tag}</div>`
+          html += `<div style="line-height:1.6">${def.label} ${valueText}</div>`
         }
         html += `<div style="margin-top:4px;color:#94a3b8;font-size:11px">结婚登记 ${row.marriages_wan == null ? '—' : Number(row.marriages_wan).toFixed(1)} 万对</div>`
         return html
@@ -248,7 +188,12 @@ export function buildRateCompareOption(rows = [], selectedIds = DEFAULT_RATE_IDS
       boundaryGap: false,
       axisLine: AXIS_LINE,
       axisTick: { show: false },
-      axisLabel: { color: '#94a3b8', fontSize: 10, interval: index => index % 5 === 0 },
+      axisLabel: {
+        color: '#94a3b8',
+        fontSize: 10,
+        // 每 5 年一个刻度，强制保留最后一年
+        interval: index => index === years.length - 1 || (index % 5 === 0 && index !== years.length - 2),
+      },
     },
     yAxis: {
       type: 'value',

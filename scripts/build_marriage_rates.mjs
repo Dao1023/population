@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * 构建结婚率时间序列（2000–2025，单位 ‰）。
+ * 构建结婚率时间序列（2000–2026，单位 ‰）。2026 为推算行：
+ * 前三季实测（marriage_quarterly.csv）+ Q4 按 2021–2025 年中位比例反推。
  *
  * 输入（均为 data/ 下的原始 CSV，不经 csv2json）：
- *   - marriage_annual.csv              结婚对数（万对）
+ *   - marriage_annual.csv              结婚对数（万对，2000–2025 实测）
+ *   - marriage_quarterly.csv           分季度结婚对数（算 2026 前三季与 Q4/前三季比例）
  *   - population_total_annual.csv      年末总人口（万人，国家统计局口径）
  *   - full_population_projection.csv   分年龄人口投影（仅取年龄结构占比）
  *   - census_never_married_share.csv   普查 15+ 分年龄未婚比例（0–1）
@@ -224,17 +226,8 @@ function bandDenom(year, [lo, hi]) {
   return (base * sum) / total
 }
 
-const rows = []
-const missing = []
-
-for (let year = YEAR_START; year <= YEAR_END; year++) {
-  const marriages = marriagesByYear.get(year)
-  const popTotal = popByYear.get(year)
-
-  if (!Number.isFinite(marriages)) missing.push(`${year} 结婚对数`)
-  if (!Number.isFinite(popTotal)) missing.push(`${year} 总人口`)
-  if (!projByYear.has(year)) missing.push(`${year} 投影年龄结构`)
-
+/** 计算单年一行；2026 推算行也复用同一套口径 */
+function buildRow(year, marriages, popTotal) {
   const pop20_39 = bandDenom(year, BAND_20_39)
   const pop15_49 = bandDenom(year, BAND_15_49)
 
@@ -265,7 +258,7 @@ for (let year = YEAR_START; year <= YEAR_END; year++) {
   else if (year === 2010 || year === 2020) generalFlag = 'census'
   else generalFlag = 'interpolated'
 
-  rows.push({
+  return {
     year,
     marriages_wan: Number.isFinite(marriages) ? round(marriages, 1) : null,
     pop_total_wan: Number.isFinite(popTotal) ? Math.round(popTotal) : null,
@@ -281,13 +274,87 @@ for (let year = YEAR_START; year <= YEAR_END; year++) {
       pop_15plus_unmarried_wan: round(popUnmarried, 1),
     },
     flags: { general: generalFlag },
-  })
+  }
+}
+
+const rows = []
+const missing = []
+
+for (let year = YEAR_START; year <= YEAR_END; year++) {
+  const marriages = marriagesByYear.get(year)
+  const popTotal = popByYear.get(year)
+
+  if (!Number.isFinite(marriages)) missing.push(`${year} 结婚对数`)
+  if (!Number.isFinite(popTotal)) missing.push(`${year} 总人口`)
+  if (!projByYear.has(year)) missing.push(`${year} 投影年龄结构`)
+
+  rows.push(buildRow(year, marriages, popTotal))
 }
 
 if (missing.length) {
   console.error(`缺少输入数据：${missing.join('、')}`)
   process.exit(1)
 }
+
+// ---------------------------------------------------------------- 2026 推算
+// 民政部 2026 年只公布到 Q3。用 2021–2025 五个完整年份的 Q4/前三季中位比例 r，
+// 把 2026 前三季实测补成全年：全年 = 前三季合计 × (1 + r)。r 由数据算出，不写死。
+const quarterlyRows = readCsv('marriage_quarterly.csv')
+const quartersByYear = new Map()
+for (const r of quarterlyRows) {
+  const year = Number(r.year)
+  const quarter = Number(r.quarter)
+  const value = Number(r.marriages_wan)
+  if (!Number.isFinite(year) || !Number.isFinite(quarter) || !Number.isFinite(value)) continue
+  if (!quartersByYear.has(year)) quartersByYear.set(year, new Map())
+  quartersByYear.get(year).set(quarter, value)
+}
+
+const median = list => {
+  const sorted = [...list].sort((a, b) => a - b)
+  const mid = sorted.length >> 1
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+const REF_YEARS = [2021, 2022, 2023, 2024, 2025]
+const q4Ratios = []
+for (const year of REF_YEARS) {
+  const qs = quartersByYear.get(year)
+  if (!qs || ![1, 2, 3, 4].every(q => Number.isFinite(qs.get(q)))) {
+    console.error(`季度表缺 ${year} 年完整四季，无法计算 Q4/前三季比例`)
+    process.exit(1)
+  }
+  q4Ratios.push(qs.get(4) / (qs.get(1) + qs.get(2) + qs.get(3)))
+}
+const q4Ratio = median(q4Ratios)
+if (!(q4Ratio >= 0.28 && q4Ratio <= 0.30)) {
+  console.error(`Q4/前三季中位比例 r=${q4Ratio.toFixed(4)} 不在 0.28–0.30，拒绝生成 2026 推算值`)
+  process.exit(1)
+}
+
+const q2026 = quartersByYear.get(2026)
+if (!q2026 || ![1, 2, 3].every(q => Number.isFinite(q2026.get(q)))) {
+  console.error('季度表缺 2026 年前三季，无法推算 2026 全年')
+  process.exit(1)
+}
+const s3_2026 = q2026.get(1) + q2026.get(2) + q2026.get(3)
+const marriages2026 = s3_2026 * (1 + q4Ratio)
+
+// 2026 官方年末总人口未公布：用分年龄投影合计（万人）作 crude 分母，
+// 与年龄分组分母同源，避免只给年龄口径、漏掉总人口口径。
+const proj2026Wan = projTotal(2026) ? projTotal(2026) / 10000 : null
+if (!proj2026Wan) {
+  console.error('投影缺 2026 年分年龄人口，无法计算 2026 年结婚率')
+  process.exit(1)
+}
+
+const row2026 = buildRow(2026, marriages2026, proj2026Wan)
+row2026.estimated = true
+row2026.estimate = {
+  q4_wan: round(marriages2026 - s3_2026, 1),
+  method: `Q4 按 2021–2025 年 Q4/前三季中位比例 r=${q4Ratio.toFixed(4)} 反推`,
+}
+rows.push(row2026)
 
 // ---------------------------------------------------------------- 输出
 const meta = {
@@ -301,10 +368,15 @@ const meta = {
       : '分年龄分母：直接用 full_population_projection.csv 的分年龄人口（万人）。该序列总量偏低，但缺口集中在 40 岁以上（2000 年 0–14 岁 2.91 亿 vs 官方 2.90 亿，15+ 仅 7.93 亿 vs 官方 9.77 亿）；若按官方总人口整体缩放，会把 40+ 缺口摊到 20–39 岁，使 2000 年 20–39 分母虚高到 5.03 亿（实约 4.3 亿）、2013 年 age20_39 降到 30.67‰。可用 MARRIAGE_RATE_SCALE=official 切回字面缩放口径。',
     '该投影缺 2021 年列，按 (2020 + 2022) / 2 逐年插值后再参与计算。',
     '15 岁以上未婚比例来自 2010 年六普、2020 年七普表 5-3（长表 10% 抽样），65 岁及以上为合并组，按该组合计未婚比例填充 65–100 岁；详见 data/census_never_married_share.source.md。',
-    'general 口径：2011–2019 按 2010/2020 两次普查线性插值（flags=census/interpolated）；2000–2009 沿用 2010 年剖面、2021–2025 沿用 2020 年剖面（flags=extrapolated，两端为外推区）。',
-    '2025 年结婚对数与总人口均为初步数，后续可能修订；分年龄结构在 2021–2025 全部依赖 2020 年普查剖面外推。',
+    'general 口径：2011–2019 按 2010/2020 两次普查线性插值（flags=census/interpolated）；2000–2009 沿用 2010 年剖面、2021–2026 沿用 2020 年剖面（flags=extrapolated，两端为外推区）。',
+    '2025 年结婚对数与总人口均为初步数，后续可能修订；分年龄结构在 2021–2026 全部依赖 2020 年普查剖面外推。',
+    '2026 年全年数为推算值（estimated=true）：前三季为实测，第四季度按 2021–2025 年 Q4/前三季中位比例反推；2026 年总人口取分年龄投影合计，官方年末人口尚未公布。',
     '分母为 0 或缺失时该口径记 null，不做补零；rates 允许为 null，前端断线。',
   ],
+  estimate_note:
+    `2026 年全年数 = 前三季实测合计 ${round(s3_2026, 1)} 万对 × (1 + r)，` +
+    `r 为 ${REF_YEARS[0]}–${REF_YEARS[REF_YEARS.length - 1]} 年 Q4/前三季比例的中位数（r=${q4Ratio.toFixed(4)}），` +
+    `推算全年约 ${round(marriages2026, 1)} 万对，非民政部最终数。`,
   denominators: [
     { id: 'crude', label: '总人口', short: '总人口' },
     { id: 'age20_39', label: '20–39 岁人口', short: '20–39 岁' },
@@ -324,13 +396,15 @@ console.log(
   `marriage_rate_series.json: ${rows.length} 行（${rows[0].year}–${rows[rows.length - 1].year}）` +
     `，结构基准=${SCALE_TO_OFFICIAL ? 'official（按官方总人口缩放）' : 'projection（投影分年龄绝对值）'}`,
 )
-for (const year of [2000, 2013, 2024, 2025]) {
+for (const year of [2000, 2013, 2024, 2025, 2026]) {
   const row = rows.find(r => r.year === year)
   if (!row) continue
   const { crude, age20_39, age15_49, general } = row.rates
   console.log(
     `  ${year}: crude=${crude} age20_39=${age20_39} age15_49=${age15_49} general=${general}` +
-      ` | 20–39=${row.denoms.pop_20_39_wan}万 15–49=${row.denoms.pop_15_49_wan}万 15+未婚=${row.denoms.pop_15plus_unmarried_wan}万`,
+      ` | 20–39=${row.denoms.pop_20_39_wan}万 15–49=${row.denoms.pop_15_49_wan}万 15+未婚=${row.denoms.pop_15plus_unmarried_wan}万` +
+      (row.estimated ? `（推算，Q4=${row.estimate.q4_wan}万）` : ''),
   )
 }
+console.log(`  2026 反推比例 r（2021–2025 中位）= ${q4Ratio.toFixed(4)}，前三季合计 ${round(s3_2026, 1)} 万对`)
 console.log('Done!')

@@ -8,6 +8,8 @@ import { graphic } from 'echarts/core'
 export const MARRIAGE_COLORS = {
   marriage: '#2563eb',
   marriageSoft: '#bfdbfe',
+  // 反推年份（2026）用浅一档的蓝，实心、实线，与实测年份区分
+  marriageEstimate: '#60a5fa',
   divorce: '#f59e0b',
   divorcePrelim: '#fde68a',
   ratio: '#ef4444',
@@ -34,16 +36,41 @@ function wan(value, digits = 1) {
 }
 
 /* ---------------------------------------------------------------- 年度折线 */
+/**
+ * 年度结婚/离婚。数据源是 marriage_annual.json（2000–2025 实测），
+ * 页面运行时把 marriage_rate_series.json 里 estimated=true 的 2026 行拼到末尾。
+ * 2026 用浅一档的实心点（不用虚线、不用斜纹），标签「≈数值」从数据算；离婚无 2026 数据，留空。
+ */
 export function buildAnnualOption(annual = []) {
   if (!annual.length) return {}
-  const years = annual.map(r => String(r.year))
-  const last = annual[annual.length - 1]
+  const rows = [...annual].sort((a, b) => a.year - b.year)
+  const years = rows.map(r => String(r.year))
 
-  const marriages = annual.map(r => r.marriages_wan)
-  const divorces = annual.map(r => {
-    // 离婚分年数据自 2010 年起公布：之前保持 null，让折线自然断开，绝不补 0
+  const marriages = rows.map(r => {
+    if (r.estimated !== true) return r.marriages_wan
+    return {
+      value: r.marriages_wan,
+      symbol: 'circle',
+      symbolSize: 8,
+      itemStyle: { color: MARRIAGE_COLORS.marriageEstimate },
+      label: {
+        show: true,
+        // 末点在右边界：留出右侧留白（grid.right）后把标签放在点的右侧，
+        // 既不裁切，也不会被从左上斜下的折线穿过
+        position: 'right',
+        distance: 6,
+        color: '#475569',
+        fontSize: 10,
+        formatter: () => `≈${Math.round(r.marriages_wan)}`,
+      },
+    }
+  })
+
+  // 离婚分年数据自 2010 年起公布：之前保持 null，让折线自然断开，绝不补 0
+  const lastDivorceYear = rows.filter(r => r.divorces_wan != null).at(-1)?.year
+  const divorces = rows.map(r => {
     if (r.divorces_wan == null) return null
-    if (r.year === last.year) {
+    if (r.year === lastDivorceYear) {
       // 2025 离婚为初步数：空心符号与正式数区分
       return {
         value: r.divorces_wan,
@@ -55,12 +82,15 @@ export function buildAnnualOption(annual = []) {
     return r.divorces_wan
   })
 
-  const peak = annual.reduce((a, r) => (r.marriages_wan > a.marriages_wan ? r : a), annual[0])
-  const trough = annual.reduce((a, r) => (r.marriages_wan < a.marriages_wan ? r : a), annual[0])
+  // 峰值/谷底只从实测年份里找：反推年份不参与「历史极值」标注
+  const actual = rows.filter(r => r.estimated !== true)
+  const peak = actual.reduce((a, r) => (r.marriages_wan > a.marriages_wan ? r : a), actual[0])
+  const trough = actual.reduce((a, r) => (r.marriages_wan < a.marriages_wan ? r : a), actual[0])
 
   return {
     animationDuration: 500,
-    grid: { left: 8, right: 26, top: 46, bottom: 4, containLabel: true },
+    // right 留 46：末点（2026）右侧要放「≈598」标签，太窄会被画布裁掉
+    grid: { left: 8, right: 46, top: 46, bottom: 4, containLabel: true },
     legend: {
       top: 4,
       left: 0,
@@ -75,15 +105,20 @@ export function buildAnnualOption(annual = []) {
       axisPointer: { type: 'line', lineStyle: { color: '#cbd5e1', type: 'dashed' } },
       formatter(params) {
         const year = Number(params[0]?.axisValue)
-        const rows = annual.find(r => r.year === year)
-        if (!rows) return ''
+        const row = rows.find(r => r.year === year)
+        if (!row) return ''
         let html = `<div style="font-weight:600;margin-bottom:4px">${year} 年</div>`
-        html += `结婚登记 <b>${wan(rows.marriages_wan)}</b> 万对<br/>`
-        if (rows.divorces_wan != null) {
-          const tag = year === last.year ? '（初步数）' : ''
-          html += `离婚登记 <b>${wan(rows.divorces_wan)}</b> 万对${tag}`
+        html += `结婚登记 <b>${wan(row.marriages_wan)}</b> 万对${row.estimated ? '（推算）' : ''}<br/>`
+        if (row.divorces_wan != null) {
+          const tag = year === lastDivorceYear ? '（初步数）' : ''
+          html += `离婚登记 <b>${wan(row.divorces_wan)}</b> 万对${tag}`
+        } else if (lastDivorceYear != null && year > lastDivorceYear) {
+          html += '离婚登记 <span style="color:#94a3b8">尚未公布</span>'
         } else {
           html += '离婚登记 <span style="color:#94a3b8">无分年数据</span>'
+        }
+        if (row.estimated) {
+          html += `<div style="margin-top:4px;color:#94a3b8;font-size:11px">2026 为前三季实测 + Q4 反推，非最终数</div>`
         }
         return html
       },
@@ -94,7 +129,12 @@ export function buildAnnualOption(annual = []) {
       boundaryGap: false,
       axisLine: AXIS_LINE,
       axisTick: { show: false },
-      axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10, interval: 5 },
+      // 每 5 年一个刻度，但强制保留最后一年（2026 是推算年，不能被自动间隔吞掉）
+      axisLabel: {
+        color: MARRIAGE_COLORS.axis,
+        fontSize: 10,
+        interval: index => index === years.length - 1 || (index % 5 === 0 && index !== years.length - 2),
+      },
     },
     yAxis: {
       type: 'value',
@@ -166,23 +206,20 @@ export function buildAnnualOption(annual = []) {
   }
 }
 
-/* ---------------------------------------------------------------- 季度柱状 */
+/* ---------------------------------------------------------------- 季度折线 */
+/**
+ * 已公布的数据一律实线：2017Q1 → 2026Q3 一条连续实线。
+ * 2026 只有前三季，用图例与页面图注说明，不再单独画虚线。
+ */
 export function buildQuarterlyOption(quarterly = []) {
   if (!quarterly.length) return {}
-  const labels = quarterly.map(r => `${r.year}Q${r.quarter}`)
-  const firstPartial = quarterly.findIndex(r => r.year >= 2026)
-  // 2026 只有前三季：单独画虚线，并从 2025Q4 那一点接出来，
-  // 否则线断在半空，看起来像数据缺失。
-  const actual = quarterly.map(r => (r.year >= 2026 ? null : r.marriages_wan))
-  const partial = quarterly.map((r, i) => {
-    if (r.year >= 2026) return r.marriages_wan
-    if (i === firstPartial - 1) return r.marriages_wan
-    return null
-  })
+  const rows = [...quarterly].sort((a, b) => a.year - b.year || a.quarter - b.quarter)
+  const labels = rows.map(r => `${r.year}Q${r.quarter}`)
+  const values = rows.map(r => r.marriages_wan)
   // 标 2025Q2 而不是全局最高点：全局最高在 2017Q1（序列起点），
   // 标它等于标"数据从哪儿开始"，对读者没信息量。
-  const pulseIdx = quarterly.findIndex(r => r.year === 2025 && r.quarter === 2)
-  const pulse = pulseIdx >= 0 ? { i: pulseIdx, value: quarterly[pulseIdx].marriages_wan } : null
+  const pulseIdx = rows.findIndex(r => r.year === 2025 && r.quarter === 2)
+  const pulse = pulseIdx >= 0 ? { i: pulseIdx, value: rows[pulseIdx].marriages_wan } : null
 
   return {
     animationDuration: 500,
@@ -195,7 +232,7 @@ export function buildQuarterlyOption(quarterly = []) {
       itemHeight: 8,
       itemGap: 14,
       textStyle: { color: MARRIAGE_COLORS.axis, fontSize: 10 },
-      data: ['2017–2025', '2026 前三季'],
+      data: ['2017Q1–2026Q3（2026 仅前三季）'],
     },
     tooltip: {
       ...TOOLTIP_BASE,
@@ -203,7 +240,7 @@ export function buildQuarterlyOption(quarterly = []) {
       formatter(params) {
         const p = params[0]
         if (!p) return ''
-        const row = quarterly[p.dataIndex]
+        const row = rows[p.dataIndex]
         const extra = row.year >= 2026 ? '<br/><span style="color:#94a3b8;font-size:11px">截至 9 月 30 日，仅前三季</span>' : ''
         return `<div style="font-weight:600;margin-bottom:4px">${row.year} 年第 ${row.quarter} 季度</div>结婚登记 <b>${wan(row.marriages_wan)}</b> 万对${extra}`
       },
@@ -224,9 +261,9 @@ export function buildQuarterlyOption(quarterly = []) {
     },
     series: [
       {
-        name: '2017–2025',
+        name: '2017Q1–2026Q3（2026 仅前三季）',
         type: 'line',
-        data: actual,
+        data: values,
         showSymbol: false,
         symbol: 'circle',
         symbolSize: 4,
@@ -253,15 +290,6 @@ export function buildQuarterlyOption(quarterly = []) {
               data: [{ coord: [pulse.i, pulse.value] }],
             }
           : undefined,
-      },
-      {
-        name: '2026 前三季',
-        type: 'line',
-        data: partial,
-        symbol: 'circle',
-        symbolSize: 5,
-        itemStyle: { color: '#fff', borderColor: MARRIAGE_COLORS.marriage, borderWidth: 2 },
-        lineStyle: { width: 2, type: 'dashed', color: MARRIAGE_COLORS.marriage },
       },
     ],
   }

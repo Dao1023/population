@@ -159,12 +159,22 @@ if (rateSeries) {
   const rateOf = (y, id) => byYear(y)?.rates?.[id]
   const inRange = (v, lo, hi) => Number.isFinite(v) && v >= lo && v <= hi
 
-  check('行数 = 26', rows.length === 26, `实际 ${rows.length}`)
+  check('行数 = 27', rows.length === 27, `实际 ${rows.length}`)
   const years = rows.map(r => r.year)
   check(
-    '年份 2000–2025 连续',
-    years.length === 26 && years.every((y, i) => y === 2000 + i),
+    '年份 2000–2026 连续',
+    years.length === 27 && years.every((y, i) => y === 2000 + i),
     `${years[0]}–${years[years.length - 1]}`,
+  )
+  check('2026 行 estimated === true', byYear(2026)?.estimated === true, String(byYear(2026)?.estimated))
+  check(
+    '2026 全年推算在 560–640 万对',
+    inRange(byYear(2026)?.marriages_wan, 560, 640),
+    `${byYear(2026)?.marriages_wan} 万对`,
+  )
+  check(
+    'meta.estimate_note 说明推算方法',
+    typeof rateSeries.meta?.estimate_note === 'string' && rateSeries.meta.estimate_note.includes('Q4'),
   )
   check('单位 = ‰', rateSeries.meta?.unit === '‰', String(rateSeries.meta?.unit))
   check(
@@ -192,7 +202,7 @@ if (rateSeries) {
     rows.every(r => r.denoms && Number.isFinite(r.denoms.pop_20_39_wan) && r.denoms.pop_20_39_wan > 0),
   )
 
-  for (const y of [2000, 2013, 2024, 2025]) {
+  for (const y of [2000, 2013, 2024, 2025, 2026]) {
     const r = byYear(y)
     if (!r) continue
     console.log(
