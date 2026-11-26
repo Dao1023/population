@@ -1,43 +1,120 @@
-## 中国人口结构预测项目
+<p align="center">
+  <img src="docs/cover.svg" alt="人口与婚姻：中国人口结构与结婚趋势" width="100%">
+</p>
 
-基于 2020 年人口普查数据，通过交互式可视化动态展示中国人口结构变化趋势，并标注特定年龄的核心消费热点，预测未来房产、教育、医疗等需求变化。
+<h3 align="center">中国结婚登记从 1346.9 万对跌到 610.6 万对，只用了十一年。</h3>
+<p align="center">这个站把「结婚」和「人口」放在一起看 —— 一条从婚姻到养老的完整链条。</p>
 
-在线体验：[https://dao1023.github.io/population/](https://dao1023.github.io/population/)
+<p align="center">
+  <a href="https://dao1023.github.io/population/"><img src="https://img.shields.io/badge/在线体验-打开网站-2563eb?style=for-the-badge" alt="在线体验"></a>
+  <img src="https://img.shields.io/badge/数据-民政部_·_国家统计局-0f172a?style=for-the-badge" alt="数据来源">
+  <img src="https://img.shields.io/badge/覆盖-1951_→_2200-0f172a?style=for-the-badge" alt="时间范围">
+</p>
 
-## 功能特性
+<p align="center">
+  <img src="https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=white" alt="Vue 3">
+  <img src="https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white" alt="Vite 8">
+  <img src="https://img.shields.io/badge/ECharts-6-aa344d" alt="ECharts 6">
+  <img src="https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white" alt="Tailwind 4">
+  <img src="https://img.shields.io/badge/部署-GitHub_Pages-181717?logo=github" alt="GitHub Pages">
+</p>
 
-- 年龄分布柱状图，支持年份播放/拖动（1951-2200）
+---
+
+## 为什么把结婚和人口放在一起
+
+因为它们是**同一条链**：
+
+```
+结婚（当年）
+  └→ 出生（滞后约 1 年）
+       └→ 幼儿园 / 小学（滞后 6 年）
+            └→ 劳动力（滞后 20 年）
+                 └→ 养老（滞后 60 年）
+```
+
+结婚登记是所有人口指标里**最靠前**的那个信号。等幼儿园招不满的时候再反应，已经晚了六年。
+
+## 三个数字
+
+| | 数值 | 说明 |
+| --- | --- | --- |
+| 峰值 | **1346.9 万对** | 2013 年，中国结婚登记的历史最高点 |
+| 谷底 | **610.6 万对** | 2024 年，十一年跌 54.7% |
+| 反弹 | **731.0 万对** | 2025 年，但增量集中在两个季度——是政策脉冲，不是趋势反转 |
+
+少掉的 736 万对里，**只有 27% 是适婚人口变少了，73% 是「结婚这件事本身」变少了**。
+
+## 站里有什么
+
+### 首页 · 一篇报告
+
+六个屏讲完一条线：从十一年腰斩，到「人少了还是不想结」，再到 2030 年的量级。图是定格的，能截图转发。
+
+### 人口结构 · `/population`
+
+- 年龄金字塔，1951–2200 可拖、可播放
 - 可调参数：生育率覆盖、女性比例
-- 人口总览折线图（总人口、中位年龄、养老抚养比）
-- 消费热点指数图（公寓、婚房、改善房、教育、医疗、养老等）
-- 时间窗口双滑块，聚焦任意时间段
-- 算法：前向模拟（年龄移位 + 死亡率年度改善 0.5%/年）+ 反向逆推
+- 总人口 / 中位年龄 / 养老抚养比
+- 11 个消费热点（公寓、婚房、改善房、教育、医疗、养老……）随人群移动
 
-## 项目结构
+### 结婚趋势 · `/marriage`
 
-```
-population/
-├── data/                           # 原始数据 (CSV)
-├── web/
-│   ├── public/data/                # JSON 数据 (由脚本转换)
-│   ├── src/
-│   │   ├── App.vue                 # 主界面
-│   │   ├── composables/
-│   │   │   └── usePopulation.js    # 核心模拟算法
-│   │   └── components/             # 图表组件
-│   └── vite.config.js
-├── notebook/                       # Jupyter Notebook (数据预测)
-└── .github/workflows/deploy.yml   # GitHub Pages 自动部署
-```
+- 年度结婚 / 离婚对数，2000–2025
+- 季度序列，2017Q1 起，标注政策与疫情节点
+- 离结比折线
+- 31 个省份，可筛选
 
-## 运行方法
+## 本地跑起来
 
 ```bash
 cd web
 pnpm install
-pnpm dev
+pnpm dev        # 开发
+pnpm build      # 构建
 ```
 
-## 部署
+数据转换（CSV → JSON）：
 
-push 到 master 自动通过 GitHub Actions 构建并部署到 GitHub Pages。
+```bash
+pnpm data
+```
+
+## 数据来源
+
+| 数据 | 来源 | 说明 |
+| --- | --- | --- |
+| 结婚 / 离婚登记对数 | 民政部《民政事业发展统计公报》 | 季度与年度 |
+| 分省婚姻登记 | 民政部 | 初婚 / 再婚为**人数**，1 对 = 2 人 |
+| 年龄结构 | 国家统计局 · 2020 年人口普查 | 0–100 岁，逐年 |
+| 生育率、死亡率 | 国家统计局 | 用于前向模拟 |
+
+> 离结比一律按 **离婚对数 ÷ 结婚登记对数** 计算。表中若出现其他口径（如除以人数），数值会差一倍。
+
+## 目录结构
+
+```
+population/
+├── data/                    # 原始 CSV
+├── web/
+│   ├── public/data/         # 转换后的 JSON
+│   └── src/
+│       ├── pages/           # 首页报告 / 人口结构 / 结婚趋势
+│       ├── components/      # 图表组件
+│       ├── composables/     # 人口模拟算法
+│       └── lib/             # ECharts 注册、格式化
+├── scripts/                 # 数据转换与校验
+└── notebook/                # 预测 notebook
+```
+
+## 说明
+
+人口数据为**情景推演**，不是预言。结婚与房价、消费之间的关系是统计相关，不构成因果。
+
+数据以民政部、国家统计局公开发布为准。
+
+---
+
+<p align="center">
+  <sub>如果这张图让你想起点什么，欢迎点个 ⭐</sub>
+</p>
