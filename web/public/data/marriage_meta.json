@@ -1,0 +1,40 @@
+{
+  "title": "中国结婚与离婚登记数据",
+  "source": "国家民政部婚姻登记统计（用户提供 Excel：结婚率.xlsx）",
+  "source_file": "data/source/marriage_rates.xlsx",
+  "generated_by": "scripts/marriage_xlsx2csv.py",
+  "generated_at": "2026-11-26",
+  "cutoff": {
+    "quarterly": "2026-09-30",
+    "annual": "2025-12-31",
+    "provinces": "2024-12-31"
+  },
+  "units": {
+    "marriages_wan": "万对",
+    "divorces_wan": "万对",
+    "first_marriage_wan": "万人（人数，不是对数）",
+    "remarriage_wan": "万人（人数，不是对数）",
+    "divorce_rate_permille": "‰",
+    "divorce_marriage_ratio": "比值（离婚对数 ÷ 结婚登记对数）"
+  },
+  "definitions": {
+    "marriages_wan": "结婚登记对数，单位万对",
+    "divorces_wan": "离婚登记对数，单位万对；2010 年起有分年数据",
+    "divorce_marriage_ratio": "离婚登记对数 ÷ 结婚登记对数，不是除以人数",
+    "first_marriage_wan": "初婚人数（万人）。初婚占比 = 初婚人数 ÷ (2 × 结婚登记对数)",
+    "remarriage_wan": "再婚人数（万人）。再婚占比 = 再婚人数 ÷ (2 × 结婚登记对数)",
+    "divorce_rate_permille": "离婚率，千分号"
+  },
+  "notes": [
+    "省表标题写「2025 年」，但 31 省汇总结婚 610.55 万对、离婚 351.30 万对，与 2024 年全国数一致，故省份 year 一律记为 2024。",
+    "离结比存在三种算法（÷结婚人数、÷结婚对数、÷初婚人数）；本数据只采用「离婚对数 ÷ 结婚登记对数」。",
+    "初婚 / 再婚为人数，需除以 2 × 结婚对数才得到占比。",
+    "2025 年离婚 274.3 万对为初步数，不宜解读为婚姻稳定性回升。",
+    "季度序列 2017Q1–2026Q3，2026Q4 尚未公布。"
+  ],
+  "files": {
+    "marriage_quarterly.csv": "year,quarter,marriages_wan",
+    "marriage_annual.csv": "year,marriages_wan,divorces_wan,divorce_marriage_ratio",
+    "marriage_provinces.csv": "year,province,marriages_wan,first_marriage_wan,remarriage_wan,divorces_wan,divorce_rate_permille,divorce_marriage_ratio"
+  }
+}
