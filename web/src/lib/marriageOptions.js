@@ -206,11 +206,22 @@ export function buildAnnualOption(annual = []) {
   }
 }
 
-/* ---------------------------------------------------------------- 季度折线 + 环比柱 */
-// 环比柱：上升绿、下降红（用户指定口径）
+/* ---------------------------------------------------------------- 季度折线 + 变化柱 */
+// 变化柱：上升绿、下降红（用户指定口径）
 export const QOQ_COLORS = { up: 'rgba(22,163,74,0.72)', down: 'rgba(220,38,38,0.72)' }
 
-/** 季度环比（%）：与上一季度相比；序列首期无上一期，返回 null。 */
+/** 季度差值（万对）：当季 − 上一季；序列首期无上一期，返回 null。 */
+export function quarterlyDelta(quarterly = []) {
+  const rows = [...quarterly].sort((a, b) => a.year - b.year || a.quarter - b.quarter)
+  return rows.map((r, i) => {
+    if (i === 0) return null
+    const prev = rows[i - 1].marriages_wan
+    if (!Number.isFinite(prev) || prev <= 0) return null
+    return Number((r.marriages_wan - prev).toFixed(1))
+  })
+}
+
+/** 季度环比（%）：当季 / 上一季 − 1；序列首期无上一期，返回 null。 */
 export function quarterlyQoQ(quarterly = []) {
   const rows = [...quarterly].sort((a, b) => a.year - b.year || a.quarter - b.quarter)
   return rows.map((r, i) => {
@@ -224,22 +235,57 @@ export function quarterlyQoQ(quarterly = []) {
 /**
  * 已公布的数据一律实线：2017Q1 → 2026Q3 一条连续实线。
  * 2026 只有前三季，用页面图注说明，不再单独画虚线。
- * 柱＝季度环比（较上一季度），走右轴百分比；左轴仍是万对。
- * 环比未做季节调整，Q1 转负、Q2 转正主要是季节性，图注已提醒。
+ * 柱有两种口径，由页面下拉框切换：
+ *   metric = 'diff'（默认）→ 差值，万对，与折线同一根左轴；
+ *   metric = 'pct'          → 环比百分比，走右轴。
+ * 两种口径都没做季节调整，Q1 转负、Q2 转正主要是季节性，图注已提醒。
  */
-export function buildQuarterlyOption(quarterly = []) {
+export function buildQuarterlyOption(quarterly = [], { metric = 'diff' } = {}) {
   if (!quarterly.length) return {}
   const rows = [...quarterly].sort((a, b) => a.year - b.year || a.quarter - b.quarter)
   const labels = rows.map(r => `${r.year}Q${r.quarter}`)
   const values = rows.map(r => r.marriages_wan)
+  const delta = quarterlyDelta(rows)
   const qoq = quarterlyQoQ(rows)
-  const barData = qoq.map(v =>
-    v == null ? null : { value: v, itemStyle: { color: v >= 0 ? QOQ_COLORS.up : QOQ_COLORS.down } },
+  const byPct = metric === 'pct'
+  const barValues = byPct ? qoq : delta
+  const barData = barValues.map(v =>
+    v == null
+      ? null
+      : {
+          value: v,
+          itemStyle: { color: v >= 0 ? QOQ_COLORS.up : QOQ_COLORS.down, borderRadius: [2, 2, 0, 0] },
+        },
   )
+  const barUnit = byPct ? '%' : '万对'
+  const sign = v => (v >= 0 ? '+' : '')
+
   // 标 2025Q2 而不是全局最高点：全局最高在 2017Q1（序列起点），
   // 标它等于标"数据从哪儿开始"，对读者没信息量。
   const pulseIdx = rows.findIndex(r => r.year === 2025 && r.quarter === 2)
   const pulse = pulseIdx >= 0 ? { i: pulseIdx, value: rows[pulseIdx].marriages_wan } : null
+
+  const yAxis = [
+    {
+      type: 'value',
+      // 左轴：登记对数，横向网格线由它负责
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: SPLIT_LINE,
+      axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10 },
+    },
+  ]
+  if (byPct) {
+    yAxis.push({
+      // 右轴只在环比口径下出现：百分比刻度，只画标签不画网格线
+      type: 'value',
+      position: 'right',
+      splitLine: { show: false },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10, formatter: '{value}%' },
+    })
+  }
 
   return {
     animationDuration: 500,
@@ -258,20 +304,23 @@ export function buildQuarterlyOption(quarterly = []) {
     tooltip: {
       ...TOOLTIP_BASE,
       trigger: 'axis',
-      axisPointer: { type: 'line', link: [{ xAxisIndex: 'all' }], lineStyle: { color: '#cbd5e1', width: 1 } },
+      axisPointer: { type: 'line', lineStyle: { color: '#cbd5e1', width: 1 } },
       formatter(params) {
         const list = Array.isArray(params) ? params : [params]
         const idx = list.find(Boolean)?.dataIndex
         if (idx == null) return ''
         const row = rows[idx]
-        const v = qoq[idx]
-        const qoqColor = v == null ? '#94a3b8' : v >= 0 ? '#16a34a' : '#dc2626'
-        const qoqText = v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`
+        const d = delta[idx]
+        const r = qoq[idx]
+        const color = d == null ? '#94a3b8' : d >= 0 ? '#16a34a' : '#dc2626'
+        const dText = d == null ? '—' : `${sign(d)}${d.toFixed(1)} 万对`
+        const rText = r == null ? '—' : `${sign(r)}${r.toFixed(1)}%`
         const extra = row.year >= 2026 ? '<br/><span style="color:#94a3b8;font-size:11px">截至 9 月 30 日，仅前三季</span>' : ''
         return (
           `<div style="font-weight:600;margin-bottom:4px">${row.year} 年第 ${row.quarter} 季度</div>` +
           `结婚登记 <b>${wan(row.marriages_wan)}</b> 万对<br/>` +
-          `环比 <b style="color:${qoqColor}">${qoqText}</b><span style="color:#94a3b8">（较上季度）</span>${extra}`
+          `较上季度 <b style="color:${color}">${dText}</b>` +
+          `<span style="color:#94a3b8">（环比 ${rText}）</span>${extra}`
         )
       },
     },
@@ -282,34 +331,15 @@ export function buildQuarterlyOption(quarterly = []) {
       axisTick: { show: false },
       axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10, interval: 3, rotate: 45, margin: 8 },
     },
-    yAxis: [
-      {
-        type: 'value',
-        // 左轴：登记对数，横向网格线由它负责
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: SPLIT_LINE,
-        axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10 },
-      },
-      {
-        // 右轴：环比百分比，只画标签不画网格线，避免两套横线打架
-        type: 'value',
-        position: 'right',
-        splitLine: { show: false },
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: { color: MARRIAGE_COLORS.axis, fontSize: 10, formatter: '{value}%' },
-      },
-    ],
+    yAxis,
     series: [
       {
-        name: '季度环比（%）',
+        name: byPct ? '季度环比（%）' : '季度差值（万对）',
         type: 'bar',
-        yAxisIndex: 1,
+        yAxisIndex: byPct ? 1 : 0,
         data: barData,
         barWidth: '46%',
         z: 2,
-        itemStyle: { borderRadius: [2, 2, 0, 0] },
         markLine: {
           silent: true,
           symbol: 'none',
@@ -335,10 +365,15 @@ export function buildQuarterlyOption(quarterly = []) {
               symbolSize: 7,
               itemStyle: { color: MARRIAGE_COLORS.marriage },
               label: {
-                position: 'top',
-                offset: [10, -6],
+                // 标在点的左侧：2025Q2 靠右，放右侧在 375px 上会被画布裁掉
+                position: 'left',
+                offset: [-8, -6],
                 color: MARRIAGE_COLORS.text,
                 fontSize: 10,
+                // 白底：窄屏上标签会压到折线上，垫一层底色才读得清
+                backgroundColor: 'rgba(255,255,255,0.86)',
+                padding: [2, 4],
+                borderRadius: 4,
                 formatter: () => `2025Q2 脉冲 ${wan(pulse.value)}`,
               },
               data: [{ coord: [pulse.i, pulse.value] }],

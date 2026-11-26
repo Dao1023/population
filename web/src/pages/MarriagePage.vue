@@ -31,6 +31,13 @@ const annualWithEstimate = computed(() => {
   ]
 })
 
+const quarterlyMetric = ref('diff')
+const quarterlyNote = computed(() =>
+  quarterlyMetric.value === 'pct'
+    ? '柱是环比（当季 ÷ 上一季 − 1，%），绿为上升、红为下降；折线是当季登记对数。环比没做季节调整，每年 Q1 转负、Q2 起转正主要是日历造成的锯齿，不是趋势；2026 年数据截至 9 月 30 日，仅有前三季，不与全年值同轴比较。'
+    : '柱是差值（当季 − 上一季，万对），与折线共用左轴，绿为增加、红为减少；折线是当季登记对数。差值没做季节调整，每年 Q1 转负、Q2 起转正主要是日历造成的锯齿，不是趋势；2026 年数据截至 9 月 30 日，仅有前三季，不与全年值同轴比较。',
+)
+
 const provinceMetric = ref('ratio')
 const metricDef = computed(() => getProvinceMetric(provinceMetric.value))
 const provinceHeight = computed(() =>
@@ -128,13 +135,28 @@ function retry() {
       <!-- 季度折线 + 环比柱 -->
       <section class="panel p-4 sm:p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <h2 class="text-base font-semibold text-[#0f172a]">季度结婚登记与环比</h2>
-          <span class="text-[11px] text-[#94a3b8]">2017Q1–2026Q3 · 左轴：万对 · 右轴：环比 %</span>
+          <h2 class="text-base font-semibold text-[#0f172a]">季度结婚登记与变化</h2>
+          <label class="flex items-center gap-2 text-[11px] text-[#94a3b8]">
+            柱：
+            <select
+              v-model="quarterlyMetric"
+              class="select select-sm border-[#e2e8f0] bg-white text-xs text-[#0f172a]"
+            >
+              <option value="diff">差值（万对）</option>
+              <option value="pct">环比（%）</option>
+            </select>
+          </label>
         </div>
-        <QuarterlyMarriageChart :data="quarterly" :height="320" class="mt-2" />
-        <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          柱是环比（与上一季度比），绿为上升、红为下降；折线是当季登记对数。每年 Q1 转负、Q2 起转正是季节性的锯齿，不是趋势；2026 年数据截至 9 月 30 日，仅有前三季，不与全年值同轴比较。
+        <p class="mt-0.5 text-[11px] text-[#94a3b8]">
+          2017Q1–2026Q3 · 左轴：万对<template v-if="quarterlyMetric === 'pct'"> · 右轴：环比 %</template>
         </p>
+        <QuarterlyMarriageChart
+          :data="quarterly"
+          :metric="quarterlyMetric"
+          :height="320"
+          class="mt-2"
+        />
+        <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">{{ quarterlyNote }}</p>
       </section>
 
       <!-- 离结比折线 -->

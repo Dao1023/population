@@ -5,10 +5,12 @@ import { buildQuarterlyOption } from '../../lib/marriageOptions.js'
 
 const props = defineProps({
   data: { type: Array, default: () => [] },
+  // 'diff' = 差值（万对）；'pct' = 环比（%）
+  metric: { type: String, default: 'diff' },
   height: { type: Number, default: 300 },
 })
 
-const option = computed(() => buildQuarterlyOption(props.data))
+const option = computed(() => buildQuarterlyOption(props.data, { metric: props.metric }))
 const hasData = computed(() => Boolean(option.value.series?.length))
 </script>
 
