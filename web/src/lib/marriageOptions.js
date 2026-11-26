@@ -432,10 +432,11 @@ export function buildProvinceMapOption(provinces = [], metricKey = 'ratio') {
   const values = rows.map(r => r.value)
   const lo = Math.min(...values)
   const hi = Math.max(...values)
-  const span = hi - lo
-  const pad = span > 0 ? span * 0.04 : Math.max(Math.abs(hi) * 0.05, 1)
-  const vMin = Math.max(0, Math.floor((lo - pad) * 10) / 10)
-  const vMax = Math.ceil((hi + pad) * 10) / 10
+  // 色阶端点必须等于真实极值：如果两端各留 4% 余量，图例上标的"低/高"
+  // 就不是数据里的最低/最高，读者会以为还有更极端的省没画出来。
+  const factor = Math.pow(10, metric.decimals)
+  const vMin = Math.round(lo * factor) / factor
+  const vMax = Math.round(hi * factor) / factor
 
   return {
     animationDuration: 500,
