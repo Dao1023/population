@@ -98,15 +98,15 @@ function retry() {
         </p>
       </section>
 
-      <!-- 季度柱状 -->
+      <!-- 季度折线 -->
       <section class="panel p-4 sm:p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 class="text-base font-semibold text-[#0f172a]">季度结婚登记</h2>
           <span class="text-[11px] text-[#94a3b8]">2017Q1–2026Q3 · 单位：万对</span>
         </div>
-        <QuarterlyMarriageChart :data="quarterly" :height="300" class="mt-2" />
+        <QuarterlyMarriageChart :data="quarterly" :height="320" class="mt-2" />
         <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          2026 年数据截至 9 月 30 日，不与全年值同轴比较；空心柱为 2026 年前三季。
+          每年 Q1 最低、Q2–Q3 冲高，是季节性的锯齿，不是趋势；2026 年数据截至 9 月 30 日，虚线段为 2026 年前三季，不与全年值同轴比较。
         </p>
       </section>
 

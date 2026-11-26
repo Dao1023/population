@@ -170,29 +170,36 @@ export function buildAnnualOption(annual = []) {
 export function buildQuarterlyOption(quarterly = []) {
   if (!quarterly.length) return {}
   const labels = quarterly.map(r => `${r.year}Q${r.quarter}`)
-  const values = quarterly.map(r => {
-    if (r.year >= 2026) {
-      // 2026 年只有前三季：空心柱，提醒不要与全年值直接比较
-      return {
-        value: r.marriages_wan,
-        itemStyle: {
-          color: 'transparent',
-          borderColor: MARRIAGE_COLORS.marriage,
-          borderWidth: 1.5,
-          borderRadius: [3, 3, 0, 0],
-        },
-      }
-    }
-    return r.marriages_wan
+  const firstPartial = quarterly.findIndex(r => r.year >= 2026)
+  // 2026 只有前三季：单独画虚线，并从 2025Q4 那一点接出来，
+  // 否则线断在半空，看起来像数据缺失。
+  const actual = quarterly.map(r => (r.year >= 2026 ? null : r.marriages_wan))
+  const partial = quarterly.map((r, i) => {
+    if (r.year >= 2026) return r.marriages_wan
+    if (i === firstPartial - 1) return r.marriages_wan
+    return null
   })
+  // 标 2025Q2 而不是全局最高点：全局最高在 2017Q1（序列起点），
+  // 标它等于标"数据从哪儿开始"，对读者没信息量。
+  const pulseIdx = quarterly.findIndex(r => r.year === 2025 && r.quarter === 2)
+  const pulse = pulseIdx >= 0 ? { i: pulseIdx, value: quarterly[pulseIdx].marriages_wan } : null
 
   return {
     animationDuration: 500,
-    grid: { left: 8, right: 12, top: 16, bottom: 4, containLabel: true },
+    grid: { left: 8, right: 18, top: 34, bottom: 4, containLabel: true },
+    legend: {
+      show: true,
+      top: 0,
+      right: 0,
+      itemWidth: 14,
+      itemHeight: 8,
+      itemGap: 14,
+      textStyle: { color: MARRIAGE_COLORS.axis, fontSize: 10 },
+      data: ['2017–2025', '2026 前三季'],
+    },
     tooltip: {
       ...TOOLTIP_BASE,
       trigger: 'axis',
-      axisPointer: { type: 'shadow' },
       formatter(params) {
         const p = params[0]
         if (!p) return ''
@@ -217,11 +224,44 @@ export function buildQuarterlyOption(quarterly = []) {
     },
     series: [
       {
-        name: '结婚登记',
-        type: 'bar',
-        data: values,
-        barMaxWidth: 14,
-        itemStyle: { color: MARRIAGE_COLORS.marriage, borderRadius: [3, 3, 0, 0] },
+        name: '2017–2025',
+        type: 'line',
+        data: actual,
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { width: 2, color: MARRIAGE_COLORS.marriage },
+        itemStyle: { color: MARRIAGE_COLORS.marriage },
+        areaStyle: {
+          color: new graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(37,99,235,0.16)' },
+            { offset: 1, color: 'rgba(37,99,235,0.01)' },
+          ]),
+        },
+        markPoint: pulse
+          ? {
+              symbol: 'circle',
+              symbolSize: 7,
+              itemStyle: { color: MARRIAGE_COLORS.marriage },
+              label: {
+                position: 'top',
+                offset: [0, -2],
+                color: MARRIAGE_COLORS.text,
+                fontSize: 10,
+                formatter: () => `2025Q2 脉冲 ${wan(pulse.value)}`,
+              },
+              data: [{ coord: [pulse.i, pulse.value] }],
+            }
+          : undefined,
+      },
+      {
+        name: '2026 前三季',
+        type: 'line',
+        data: partial,
+        symbol: 'circle',
+        symbolSize: 5,
+        itemStyle: { color: '#fff', borderColor: MARRIAGE_COLORS.marriage, borderWidth: 2 },
+        lineStyle: { width: 2, type: 'dashed', color: MARRIAGE_COLORS.marriage },
       },
     ],
   }
