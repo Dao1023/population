@@ -6,6 +6,7 @@ import AnnualMarriageChart from '../components/marriage/AnnualMarriageChart.vue'
 import QuarterlyMarriageChart from '../components/marriage/QuarterlyMarriageChart.vue'
 import DivorceRatioChart from '../components/marriage/DivorceRatioChart.vue'
 import ProvinceRankChart from '../components/marriage/ProvinceRankChart.vue'
+import ProvinceMapChart from '../components/marriage/ProvinceMapChart.vue'
 import SourceNote from '../components/ui/SourceNote.vue'
 
 const { annual, quarterly, provinces, meta, loading, error, ensureLoaded, kpis } = useMarriageData()
@@ -93,7 +94,7 @@ function retry() {
         </div>
         <AnnualMarriageChart :data="annual" :height="340" class="mt-2" />
         <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          离婚分年数据自 2010 年起公布；2025 年离婚为<b>初步数</b>，以浅色虚线柱表示，不宜据此判断婚姻稳定性回升。
+          离婚分年数据自 2010 年起公布；2025 年离婚为<b>初步数</b>，以空心点表示，不宜据此判断婚姻稳定性回升。
         </p>
       </section>
 
@@ -121,12 +122,12 @@ function retry() {
         </p>
       </section>
 
-      <!-- 省份区 -->
+      <!-- 省份区：地图看空间分布，排名看高低 -->
       <section class="panel p-4 sm:p-5">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="text-base font-semibold text-[#0f172a]">31 省结婚与离婚</h2>
-            <p class="mt-0.5 text-[11px] text-[#94a3b8]">{{ metricDef.note }} · 2024 年 · 降序</p>
+            <p class="mt-0.5 text-[11px] text-[#94a3b8]">{{ metricDef.note }} · 2024 年</p>
           </div>
           <label class="flex items-center gap-2 text-[11.5px] text-[#64748b]">
             <span class="whitespace-nowrap">指标</span>
@@ -138,9 +139,18 @@ function retry() {
             </select>
           </label>
         </div>
+        <ProvinceMapChart :data="provinces" :metric="provinceMetric" class="mt-3" />
+        <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
+          离结比 = 离婚对数 ÷ 结婚登记对数；2024 年数据
+        </p>
+
+        <div class="mt-5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-[#eef2f7] pt-4">
+          <h3 class="text-sm font-semibold text-[#0f172a]">排名</h3>
+          <span class="text-[11px] text-[#94a3b8]">{{ metricDef.label }} · 降序</span>
+        </div>
         <ProvinceRankChart :data="provinces" :metric="provinceMetric" :height="provinceHeight" class="mt-2" />
         <p class="mt-1 text-[11.5px] leading-relaxed text-[#64748b]">
-          离结比 = 离婚对数 ÷ 结婚登记对数；2024 年数据。表中标题写作「2025 年」，但 31 省合计 610.55 万对与 2024 年全国数一致，按 2024 年计。
+          表中标题写作「2025 年」，但 31 省合计 610.55 万对与 2024 年全国数一致，按 2024 年计。
         </p>
       </section>
 
